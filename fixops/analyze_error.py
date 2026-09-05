@@ -24,6 +24,7 @@ import os
 import sys
 import json
 import asyncio
+from uuid import uuid4
 from pathlib import Path
 
 from config import settings
@@ -97,17 +98,26 @@ class ErrorLoader:
 class AnalyzeJob:
     """Полный статический анализ одного лога ошибки в заданном проекте."""
 
-    def __init__(self, project_root: str, error_log: dict,
-                 logs_dir: str | None = None, extra_ignore_dirs: tuple = ()):
+    def __init__(
+        self,
+        project_root: str,
+        error_log: dict,
+        logs_dir: str | None = None,
+        extra_ignore_dirs: tuple = (),
+        job_id: str | None = None,
+    ):
         self.project_root = os.path.abspath(project_root)
         self.error_log = error_log
         self.logs_dir = os.path.abspath(logs_dir or os.path.join(self.project_root, "logs"))
         self.extra_ignore_dirs = tuple(extra_ignore_dirs)
         self.workflow = create_workflow()
+        self.job_id = job_id or uuid4().hex
 
     async def analyze(self) -> dict:
         """Возвращает результат анализа + артефакты для сохранения."""
         initial_state: FixOpsState = {
+            "job_id": self.job_id,
+            "project_root": self.project_root,
             "project_root": self.project_root,
             "error_log": self.error_log,
             "logs_dir": self.logs_dir,
@@ -212,5 +222,5 @@ async def main() -> int:
     return await job.run()
 
 
-if __name__ == "__main__":
-    asyncio.run(main())
+# if __name__ == "__main__":
+#     asyncio.run(main())
