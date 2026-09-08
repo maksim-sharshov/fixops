@@ -41,7 +41,6 @@ def is_error(line: str) -> bool:
         or "EXCEPTION:" in upper_line
     )
 
-
 def watch_container(container):
     logger.info("Watching %s", container.name)
 
@@ -63,18 +62,27 @@ def watch_container(container):
             if not line:
                 continue
 
-            if is_error(line):
-                logger.error(
-                    "[FOUND ERROR] %s",
-                    line,
-                )
+            try:
+                data = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+
+            record = data.get("record", {})
+            level = record.get("level", {})
+
+            if level.get("name") != "ERROR":
+                continue
+
+            logger.error(
+                "[FOUND ERROR] %s",
+                line,
+            )
 
     except Exception:
         logger.exception(
             "Watcher failed for %s",
             container.name,
         )
-
 
 def main():
     logger.info("FixOps started")
