@@ -14,7 +14,7 @@ class DeepSeekHandler(AIHandler):
     Обработчик для прямого общения с DeepSeek.
     """
 
-    def __init__(self, session_id: str, model_name: str = "deepseek-v4-flash"):
+    def __init__(self, session_id: str, model_name: str = "deepseek-v4-flash"): #deepseek-v4-pro
         super().__init__(session_id)
         self.api_key = settings.deepseek.TOKEN
         self.model_name = model_name
