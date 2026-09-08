@@ -1,6 +1,7 @@
 import docker
 import logging
 import threading
+import json
 
 
 logging.basicConfig(
@@ -9,6 +10,36 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger("fixops")
+
+
+def is_error(line: str) -> bool:
+    try:
+        data = json.loads(line)
+
+        record = data.get("record", {})
+
+        level = record.get("level", {})
+        if level.get("name") == "ERROR":
+            return True
+
+        severity = record.get("extra", {}).get("severity")
+        if severity == "ERROR":
+            return True
+
+    except json.JSONDecodeError:
+        pass
+
+    # Обычный текстовый лог
+    upper_line = line.upper()
+
+    return (
+        upper_line.startswith("ERROR:")
+        or "TRACEBACK (MOST RECENT CALL LAST)" in upper_line
+        or "KEYERROR:" in upper_line
+        or "VALUEERROR:" in upper_line
+        or "TYPEERROR:" in upper_line
+        or "EXCEPTION:" in upper_line
+    )
 
 
 def watch_container(container):
@@ -32,7 +63,7 @@ def watch_container(container):
             if not line:
                 continue
 
-            if "ERROR" in line.upper():
+            if is_error(line):
                 logger.error(
                     "[FOUND ERROR] %s",
                     line,
