@@ -1,6 +1,6 @@
 import docker
 import logging
-import time
+import threading
 
 
 logging.basicConfig(
@@ -11,48 +11,75 @@ logging.basicConfig(
 logger = logging.getLogger("fixops")
 
 
+def watch_container(container):
+    logger.info(
+        "Started watching container: %s",
+        container.name,
+    )
+
+    try:
+        for raw_line in container.logs(
+            stream=True,
+            follow=True,
+            timestamps=True,
+        ):
+            line = raw_line.decode(
+                "utf-8",
+                errors="replace",
+            ).rstrip()
+
+            if "ERROR" in line.upper():
+                logger.error(
+                    "[FOUND ERROR] %s",
+                    line,
+                )
+
+                # Здесь позже:
+                # create_incident(...)
+
+            else:
+                logger.info(
+                    "[LOG] %s",
+                    line,
+                )
+
+    except Exception:
+        logger.exception(
+            "Error while watching %s",
+            container.name,
+        )
+
+
 def main():
     logger.info("FixOps started")
 
     client = docker.from_env()
 
-    while True:
-        containers = client.containers.list(
-            filters={"label": "fixops.enabled=true"}
+    containers = client.containers.list(
+        filters={
+            "label": "fixops.enabled=true"
+        }
+    )
+
+    logger.info(
+        "Found %d target container(s)",
+        len(containers),
+    )
+
+    threads = []
+
+    for container in containers:
+        thread = threading.Thread(
+            target=watch_container,
+            args=(container,),
+            daemon=True,
         )
 
-        logger.info(
-            "Found %d target container(s)",
-            len(containers),
-        )
+        thread.start()
+        threads.append(thread)
 
-        for container in containers:
-            logger.info(
-                "Reading logs from %s",
-                container.name,
-            )
-
-            logs = container.logs(
-                tail=10,
-                timestamps=True,
-            ).decode(
-                "utf-8",
-                errors="replace",
-            )
-
-            for line in logs.splitlines():
-                if "ERROR" in line.upper():
-                    logger.error(
-                        "[FOUND ERROR] %s",
-                        line,
-                    )
-                else:
-                    logger.info(
-                        "[LOG] %s",
-                        line,
-                    )
-
-        time.sleep(3)
+    for thread in threads:
+        thread.join()
 
 
 if __name__ == "__main__":
