@@ -1,0 +1,54 @@
+services:
+
+  fixops:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: fixops
+
+    restart: unless-stopped
+
+    depends_on:
+      - redis
+
+    volumes:
+      # FixOps наблюдает Docker
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+      # Исходные Git-репозитории — только чтение
+      - /home/virtu/projects:/projects:ro
+
+      # Здесь FixOps может создавать и изменять workspaces
+      - /home/virtu/fixops-workspaces:/workspaces
+
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${PASSWORD}
+
+
+  redis:
+    image: redis/redis-stack:latest
+
+    container_name: redis
+
+    restart: unless-stopped
+
+    command:
+      - redis-server
+      - --requirepass
+      - ${PASSWORD}
+
+    expose:
+      - "6379"
+
+    volumes:
+      - redis-data:/data
+
+    env_file:
+      - .env
+
+
+volumes:
+  redis-data:

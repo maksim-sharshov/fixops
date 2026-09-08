@@ -69,10 +69,8 @@ class FixOpsState(TypedDict, total=False):
     retry_reason: str | None
 
 
-# ============================================================
-# INDEXER
-# ============================================================
 
+# INDEXER
 @log_execution(event="workflow_step", operation="indexer")
 async def indexer_node(state: FixOpsState):
 
@@ -110,10 +108,8 @@ async def indexer_node(state: FixOpsState):
     }
 
 
-# ============================================================
-# GRAPH BUILDER
-# ============================================================
 
+# GRAPH BUILDER
 @log_execution(event="workflow_step", operation="graph_builder")
 async def graph_builder_node(state: FixOpsState):
 
@@ -141,10 +137,8 @@ async def graph_builder_node(state: FixOpsState):
     }
 
 
-# ============================================================
-# ERROR ANALYZER
-# ============================================================
 
+# ERROR ANALYZER
 @log_execution(event="workflow_step", operation="error_analyzer")
 async def error_analyzer_node(state: FixOpsState):
 
@@ -162,10 +156,8 @@ async def error_analyzer_node(state: FixOpsState):
     }
 
 
-# ============================================================
-# CONTEXT BUILDER
-# ============================================================
 
+# CONTEXT BUILDER
 @log_execution(event="workflow_step", operation="context_builder")
 async def context_builder_node(state: FixOpsState):
 
@@ -238,10 +230,8 @@ Regression-тест не должен придумывать новый
     }
 
 
-# ============================================================
-# LLM
-# ============================================================
 
+# LLM
 @log_execution(event="workflow_step", operation="llm")
 async def handle_fix_request(state: FixOpsState):
 
@@ -306,10 +296,8 @@ async def handle_fix_request(state: FixOpsState):
     }
 
 
-# ============================================================
-# APPLY FIX
-# ============================================================
 
+# APPLY FIX
 @log_execution(event="workflow_step", operation="apply_fix")
 async def apply_fix_node(state: FixOpsState):
 
@@ -360,10 +348,8 @@ async def apply_fix_node(state: FixOpsState):
         }
 
 
-# ============================================================
-# RUN TESTS
-# ============================================================
 
+# RUN TESTS
 @log_execution(event="workflow_step", operation="run_tests")
 async def run_tests_node(state: FixOpsState):
 
@@ -406,9 +392,9 @@ async def run_tests_node(state: FixOpsState):
             )
         )
 
-    # --------------------------------------------------------
+
     # reproduce.py
-    # --------------------------------------------------------
+
 
     repro_passed = False
 
@@ -492,10 +478,8 @@ async def run_tests_node(state: FixOpsState):
     }
 
 
-# ============================================================
-# ROUTER: SHOULD CONTINUE TO CONTEXT
-# ============================================================
 
+# ROUTER: SHOULD CONTINUE TO CONTEXT
 def should_continue_to_context(
     state: FixOpsState,
 ):
@@ -509,10 +493,8 @@ def should_continue_to_context(
     return "build_context"
 
 
-# ============================================================
-# ROUTER: AFTER APPLY FIX
-# ============================================================
 
+# ROUTER: AFTER APPLY FIX
 def should_run_tests(
     state: FixOpsState,
 ):
@@ -539,10 +521,8 @@ def should_run_tests(
     return "retry"
 
 
-# ============================================================
-# ROUTER: AFTER TESTS
-# ============================================================
 
+# ROUTER: AFTER TESTS
 def should_retry(
     state: FixOpsState,
 ):
@@ -584,10 +564,8 @@ def should_retry(
     return "retry"
 
 
-# ============================================================
-# RETRY NODE
-# ============================================================
 
+# RETRY NODE
 @log_execution(
     event="workflow_step",
     operation="prepare_retry",
@@ -641,10 +619,8 @@ async def prepare_retry_node(
     }
 
 
-# ============================================================
-# CREATE WORKFLOW
-# ============================================================
 
+# CREATE WORKFLOW
 def create_workflow():
 
     workflow = StateGraph(
@@ -691,10 +667,8 @@ def create_workflow():
         prepare_retry_node,
     )
 
-    # --------------------------------------------------------
-    # INITIAL
-    # --------------------------------------------------------
 
+    # INITIAL
     workflow.set_entry_point(
         "indexer"
     )
@@ -728,10 +702,8 @@ def create_workflow():
         "apply_fix",
     )
 
-    # --------------------------------------------------------
-    # APPLY FIX
-    # --------------------------------------------------------
 
+    # APPLY FIX
     workflow.add_conditional_edges(
         "apply_fix",
         should_run_tests,
@@ -742,9 +714,9 @@ def create_workflow():
         },
     )
 
-    # --------------------------------------------------------
+
     # TESTS
-    # --------------------------------------------------------
+
 
     workflow.add_conditional_edges(
         "run_tests",
@@ -756,9 +728,7 @@ def create_workflow():
         },
     )
 
-    # --------------------------------------------------------
     # RETRY
-    # --------------------------------------------------------
 
     # ВАЖНО:
     #
