@@ -26,7 +26,6 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 # Простое "хранилище" состояния в памяти процесса.
-# Обратите внимание: ключ "total" здесь отсутствует.
 data = {
     "count": 0,
 }
