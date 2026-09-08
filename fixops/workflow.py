@@ -5,127 +5,167 @@ import asyncio
 import subprocess
 
 from uuid import uuid4
-from core.decorators import log_execution
-
 from typing import TypedDict, Dict, Any
+
 from langgraph.graph import StateGraph, END
+
+from core.decorators import log_execution
+from core.logging import app_logger
+from core.events import events
 
 from code_intel.indexer import ProjectIndexer
 from code_intel.graph import GraphBuilder
 from code_intel.error_analyzer import ErrorAnalyzer
 from code_intel.context_builder import ContextBuilder
 from code_intel.resolver import ProjectIndex, CallResolver
+from code_intel.executor import FixExecutor
 
 from ai.deepseek import DeepSeekHandler
 from ai.groq import GroqHandler
-from code_intel.executor import FixExecutor
 
 from config import settings
-from core.events import events
-from core.logging import app_logger
 
 
-# Общее состояние, которое передаётся между узлами графа
-class FixOpsState(TypedDict):
+class FixOpsState(TypedDict, total=False):
 
     job_id: str
 
-    # Информация о проекте
+    # Проект
     project_root: str
     error_log: dict
     logs_dir: str
     extra_ignore_dirs: tuple
 
-    # Данные сессии LLM
+    # LLM
     session_id: str | None
+    llm_context: Any
+    llm_prompt: str
+    llm_response: str
 
-    # Данные анализа проекта
+    # Индекс проекта
     modules: Any
     indexer: Any
     index: Any
     graph: Any
     analysis_result: Dict
 
-    # Контекст и данные LLM
-    llm_context: Any
-    llm_prompt: str
-    llm_response: str
-
-    # Результат исправления
+    # Исправление
     fixed_file: str | None
     fix_applied: bool
     fix_error: str | None
 
-    # Результат тестирования
+    # Тестирование
     test_command: list[str]
     tests_passed: bool
-    reproduction_passed: bool  # Ergebnis запуска reproduce.py
+    reproduction_passed: bool
     test_return_code: int | None
     test_stdout: str
     test_stderr: str
     test_result_type: str | None
 
-    # Настройки количества попыток
+    # Retry
     fix_attempt: int
     max_fix_attempts: int
+    retry_reason: str | None
 
 
-# Индексация файлов и структуры проекта
+# ============================================================
+# INDEXER
+# ============================================================
+
 @log_execution(event="workflow_step", operation="indexer")
 async def indexer_node(state: FixOpsState):
 
     indexer = ProjectIndexer()
-    ignore_dirs = ProjectIndexer.IGNORE_DIRS + state["extra_ignore_dirs"]
+
+    ignore_dirs = (
+        ProjectIndexer.IGNORE_DIRS
+        + state.get("extra_ignore_dirs", ())
+    )
 
     modules = await indexer.scan(
         state["project_root"],
-        ignore_dirs=ignore_dirs
+        ignore_dirs=ignore_dirs,
     )
 
     index = indexer.to_dict(modules)
+
     os.makedirs(state["logs_dir"], exist_ok=True)
-    with open(os.path.join(state["logs_dir"], "index.json"), "w", encoding="utf-8") as f:
-        json.dump(index, f, ensure_ascii=False, indent=2)
+
+    with open(
+        os.path.join(state["logs_dir"], "index.json"),
+        "w",
+        encoding="utf-8",
+    ) as f:
+        json.dump(
+            index,
+            f,
+            ensure_ascii=False,
+            indent=2,
+        )
 
     return {
         "modules": modules,
-        "indexer": indexer
+        "indexer": indexer,
     }
 
 
+# ============================================================
+# GRAPH BUILDER
+# ============================================================
 
-# Построение индекса проекта и графа вызовов
 @log_execution(event="workflow_step", operation="graph_builder")
 async def graph_builder_node(state: FixOpsState):
-    idx = ProjectIndex(state["modules"])
-    graph = await GraphBuilder(CallResolver(idx)).build(idx)
 
-    with open(os.path.join(state["logs_dir"], "graph.json"), "w", encoding="utf-8") as f:
-        json.dump(graph.to_dict(), f, ensure_ascii=False, indent=2)
+    idx = ProjectIndex(state["modules"])
+
+    graph = await GraphBuilder(
+        CallResolver(idx)
+    ).build(idx)
+
+    with open(
+        os.path.join(state["logs_dir"], "graph.json"),
+        "w",
+        encoding="utf-8",
+    ) as f:
+        json.dump(
+            graph.to_dict(),
+            f,
+            ensure_ascii=False,
+            indent=2,
+        )
 
     return {
         "index": idx,
-        "graph": graph
+        "graph": graph,
     }
 
 
+# ============================================================
+# ERROR ANALYZER
+# ============================================================
 
-# Поиск проблемного участка кода по логу ошибки
 @log_execution(event="workflow_step", operation="error_analyzer")
 async def error_analyzer_node(state: FixOpsState):
 
     analyzer = ErrorAnalyzer(
         state["index"],
-        state["graph"]
+        state["graph"],
     )
-    result = await analyzer.analyze_error(state["error_log"])
+
+    result = await analyzer.analyze_error(
+        state["error_log"]
+    )
 
     return {
-        "analysis_result": result
+        "analysis_result": result,
     }
 
 
-# Подготовка релевантного контекста и prompt для LLM
+# ============================================================
+# CONTEXT BUILDER
+# ============================================================
+
 @log_execution(event="workflow_step", operation="context_builder")
 async def context_builder_node(state: FixOpsState):
 
@@ -133,63 +173,178 @@ async def context_builder_node(state: FixOpsState):
         state["project_root"]
     ).build_llm_context(
         state["index"],
-        state["analysis_result"]
+        state["analysis_result"],
     )
 
     prompt = ContextBuilder.render_llm_prompt(ctx)
 
-    # Сохраняем начальный промпт
-    prompt_path = os.path.join(state["logs_dir"], "llm_prompt.md")
-    with open(prompt_path, "w", encoding="utf-8") as f:
+    # Если это retry — добавляем информацию
+    # о предыдущем неудачном исправлении.
+    retry_reason = state.get("retry_reason")
+
+    if retry_reason:
+
+        prompt += """
+
+# ПРЕДЫДУЩАЯ ПОПЫТКА
+
+Предыдущий patch уже был применён к проекту.
+
+Он не прошёл тестирование.
+
+ВАЖНО:
+
+- предыдущий patch уже находится в текущем коде;
+- НЕ пытайся применить его повторно;
+- анализируй именно ТЕКУЩЕЕ состояние проекта;
+- если предыдущий patch был неправильным, исправь текущий код;
+- не возвращай проект искусственно к состоянию до предыдущего patch.
+
+Результат предыдущего тестирования:
+
+"""
+
+        prompt += retry_reason
+
+        prompt += """
+
+Сначала заново определи ROOT CAUSE
+в текущем состоянии проекта.
+
+Затем выбери новый минимальный PATCH.
+
+Regression-тест не должен придумывать новый
+бизнес-контракт и не должен определять expected value
+из выбранного PATCH.
+"""
+
+    attempt = state.get("fix_attempt", 0)
+
+    prompt_path = os.path.join(
+        state["logs_dir"],
+        f"llm_prompt_{attempt}.md",
+    )
+
+    with open(
+        prompt_path,
+        "w",
+        encoding="utf-8",
+    ) as f:
         f.write(prompt)
 
     return {
         "llm_context": ctx,
-        "llm_prompt": prompt
+        "llm_prompt": prompt,
     }
 
 
-# Отправляет prompt в LLM
+# ============================================================
+# LLM
+# ============================================================
+
 @log_execution(event="workflow_step", operation="llm")
 async def handle_fix_request(state: FixOpsState):
 
+    # Номер текущей попытки.
+    attempt = state.get("fix_attempt", 0) + 1
+
     session_id = state.get("session_id")
+
     if session_id is None:
         session_id = uuid4().hex
 
-    #handler = GroqHandler(session_id=session_id)
-    handler = DeepSeekHandler(session_id=session_id)
+    # На retry создаём НОВУЮ LLM-сессию.
+    #
+    # Это важно:
+    # модель не должна слепо продолжать старый разговор,
+    # в котором уже был выбран предыдущий patch.
+    if state.get("fix_attempt", 0) > 0:
+        session_id = uuid4().hex
+
+    # handler = GroqHandler(session_id=session_id)
+    handler = DeepSeekHandler(
+        session_id=session_id
+    )
+
     try:
-        content = await handler.generate_response(user_message=state["llm_prompt"])
+
+        content = await handler.generate_response(
+            user_message=state["llm_prompt"]
+        )
+
     except Exception as e:
-        app_logger.bind(event="workflow_step", operation="llm").error(f"LLM request failed: {e}")
+
+        app_logger.bind(
+            event="workflow_step",
+            operation="llm",
+        ).error(
+            f"LLM request failed: {e}"
+        )
+
         return {
             "session_id": session_id,
-            "llm_response": json.dumps({"error": str(e)}),
+            "fix_attempt": attempt,
+            "llm_response": json.dumps({
+                "error": str(e)
+            }),
         }
-    open("file.txt", "w", encoding="utf-8").write(content)
+
+    with open(
+        os.path.join(
+            state["logs_dir"],
+            f"llm_response_{attempt}.txt",
+        ),
+        "w",
+        encoding="utf-8",
+    ) as f:
+        f.write(content)
+
     return {
         "session_id": session_id,
+        "fix_attempt": attempt,
         "llm_response": content,
     }
 
 
-# Применяет исправление из ответа LLM
+# ============================================================
+# APPLY FIX
+# ============================================================
+
 @log_execution(event="workflow_step", operation="apply_fix")
 async def apply_fix_node(state: FixOpsState):
 
     try:
-        data = json.loads(state['llm_response'])
-        if "choices" in data:
-            content = data["choices"][0]["message"]["content"]
-        else:
-            content = state['llm_response']
-    except json.JSONDecodeError:
-        content = state['llm_response']
 
-    executor = FixExecutor(project_root=state["project_root"])
+        data = json.loads(
+            state["llm_response"]
+        )
+
+        if "choices" in data:
+
+            content = data[
+                "choices"
+            ][0][
+                "message"
+            ][
+                "content"
+            ]
+
+        else:
+            content = state["llm_response"]
+
+    except json.JSONDecodeError:
+
+        content = state["llm_response"]
+
+    executor = FixExecutor(
+        project_root=state["project_root"]
+    )
+
     try:
-        file_path, changed = executor.apply_fix(content)
+
+        file_path, changed = executor.apply_fix(
+            content
+        )
 
         return {
             "fixed_file": file_path,
@@ -198,140 +353,185 @@ async def apply_fix_node(state: FixOpsState):
         }
 
     except Exception as e:
+
         return {
             "fix_applied": False,
             "fix_error": str(e),
         }
 
 
-# Запускает тесты проекта
+# ============================================================
+# RUN TESTS
+# ============================================================
+
 @log_execution(event="workflow_step", operation="run_tests")
 async def run_tests_node(state: FixOpsState):
 
-    command = state.get("test_command") or ["pytest"]
-    executor = FixExecutor(project_root=state["project_root"])
-    result = executor.run_tests(command=command)
+    command = (
+        state.get("test_command")
+        or ["pytest"]
+    )
 
-    # Привязываем контекст event и operation к логгеру, чтобы не провоцировать KeyError
-    logger = app_logger.bind(event="workflow_step", operation="run_tests")
+    executor = FixExecutor(
+        project_root=state["project_root"]
+    )
+
+    result = executor.run_tests(
+        command=command
+    )
+
+    logger = app_logger.bind(
+        event="workflow_step",
+        operation="run_tests",
+    )
 
     if result.success:
-        logger.info(f"TESTS PASSED: {result.stdout.splitlines()[-1] if result.stdout else 'All tests passed'}")
-    else:
-        logger.error(f"TESTS FAILED: \n{result.stderr or result.stdout}")
 
-    # Запуск скрипта воспроизведения (reproduce.py)
+        logger.info(
+            "TESTS PASSED: "
+            + (
+                result.stdout.splitlines()[-1]
+                if result.stdout
+                else "All tests passed"
+            )
+        )
+
+    else:
+
+        logger.error(
+            "TESTS FAILED:\n"
+            + (
+                result.stderr
+                or result.stdout
+            )
+        )
+
+    # --------------------------------------------------------
+    # reproduce.py
+    # --------------------------------------------------------
+
     repro_passed = False
-    repro_script = os.path.join(state["project_root"], "reproduce.py")
+
+    repro_script = os.path.join(
+        state["project_root"],
+        "reproduce.py",
+    )
+
     if os.path.exists(repro_script):
+
         proc = await asyncio.to_thread(
             subprocess.run,
-            [sys.executable, repro_script],
+            [
+                sys.executable,
+                repro_script,
+            ],
             cwd=state["project_root"],
             capture_output=True,
             text=True,
             encoding="utf-8",
-            errors="replace"
+            errors="replace",
         )
-        repro_passed = (proc.returncode == 0)
+
+        repro_passed = (
+            proc.returncode == 0
+        )
+
         if repro_passed:
-            logger.info("REPRODUCTION PASSED")
+
+            logger.info(
+                "REPRODUCTION PASSED"
+            )
+
         else:
-            logger.error(f"REPRODUCTION FAILED: \n{proc.stderr or proc.stdout}")
+
+            logger.error(
+                "REPRODUCTION FAILED:\n"
+                + (
+                    proc.stderr
+                    or proc.stdout
+                )
+            )
+
+    retry_reason = None
+
+    if not result.success:
+
+        retry_reason = (
+            "TEST RESULT\n\n"
+            f"return_code: {result.return_code}\n"
+            f"result_type: {result.result_type}\n\n"
+            "STDOUT:\n"
+            f"{result.stdout}\n\n"
+            "STDERR:\n"
+            f"{result.stderr}\n"
+        )
+
+        if state.get("fixed_file"):
+
+            retry_reason += (
+                "\nFILE CHANGED:\n"
+                f"{state['fixed_file']}\n"
+            )
 
     return {
         "tests_passed": result.success,
         "reproduction_passed": repro_passed,
-        "test_return_code": result.return_code,
+
+        "test_return_code": (
+            result.return_code
+        ),
+
         "test_stdout": result.stdout,
         "test_stderr": result.stderr,
-        "test_result_type": result.result_type,
+
+        "test_result_type": (
+            result.result_type
+        ),
+
+        "retry_reason": retry_reason,
     }
 
 
-# Формирует prompt для повторного исправления
-@log_execution(event="workflow_step", operation="prepare_retry")
-async def prepare_retry_node(state: FixOpsState):
+# ============================================================
+# ROUTER: SHOULD CONTINUE TO CONTEXT
+# ============================================================
 
-    attempt = state.get("fix_attempt", 0) + 1
-    prompt = f"""
-        Предыдущее исправление не прошло тесты.
-        Попытка: {attempt}
-        Файл: {state.get("fixed_file")}
+def should_continue_to_context(
+    state: FixOpsState,
+):
 
-        Результат тестов:
-        STDOUT:
-        {state.get("test_stdout")}
-        STDERR:
-        {state.get("test_stderr")}
-
-        ВАЖНО: Если ошибка в тестах связана с тем, что код теперь корректно выбрасывает исключение (например, ValueError, KeyError, NotFound), ты ОБЯЗАН обновить тест, используя конструкцию `with pytest.raises(ОжидаемоеИсключение):`.
-        Не пытайся "починить" тест, удаляя выброс исключения из основного кода, если это соответствует бизнес-логике.
-
-        ВАЖНО: ИСПОЛЬЗУЙ МИНИМАЛЬНЫЙ КОНТЕКСТ ДЛЯ SEARCH.
-        Не присылай весь файл целиком.
-        Присылай только ту функцию или тот блок кода, который требует изменений, с 2-3 строками кода до и после для однозначной идентификации места.
-        Убедись, что отступы и пустые строки в SEARCH блоке СТРОГО соответствуют текущему коду в файле.
-
-        Верни исправление строго в ДВУХ блоках:
-        ```fix
-        FILE: <путь_к_файлу>
-        <<<<<<< SEARCH
-        <старый код с точным соблюдением отступов>
-        =======
-        <новый код с точным соблюдением отступов>
-        >>>>>>> REPLACE
-        ```
-        ```test
-        FILE: <путь_к_файлу_теста>
-        import pytest
-        # твой обновленный тест, проверяющий как успешный сценарий, так и ожидаемое исключение через pytest.raises
-        ```
-    """
-
-    prompt_path = os.path.join(state["logs_dir"], f"llm_prompt_{attempt}.md")
-    with open(prompt_path, "w", encoding="utf-8") as f:
-        f.write(prompt)
-
-    return {
-        "fix_attempt": attempt,
-        "llm_prompt": prompt,
-    }
-
-
-# --- Роутер ---
-def should_continue_to_context(state: FixOpsState):
-
-    if state["analysis_result"].get("resolved_node") is None:
+    if (
+        state["analysis_result"]
+        .get("resolved_node") is None
+    ):
         return "end"
 
     return "build_context"
 
 
-def should_run_tests(state: FixOpsState):
+# ============================================================
+# ROUTER: AFTER APPLY FIX
+# ============================================================
 
-    if not state.get("fix_applied", False):
-        attempt = state.get("fix_attempt", 0)
-        max_attempts = state.get("max_fix_attempts", settings.analysis.MAX_FIX_ATTEMPTS)
-        if attempt >= max_attempts:
-            return "failed"
-        return "fix_error"
-    return "run_tests"
+def should_run_tests(
+    state: FixOpsState,
+):
 
+    if state.get(
+        "fix_applied",
+        False,
+    ):
+        return "run_tests"
 
-def should_retry(state: FixOpsState):
+    attempt = state.get(
+        "fix_attempt",
+        0,
+    )
 
-    # Если тесты прошли успешно, завершаем выполнение,
-    # игнорируя результат воспроизведения, если он не критичен.
-    if state.get("tests_passed", False):
-        return "success"
-
-    if state.get("test_result_type") == "INFRA_FAILURE":
-        app_logger.bind(event="workflow_step", operation="router").error("Infrastructure failure detected, stopping.")
-        return "failed"
-
-    attempt = state.get("fix_attempt", 0)
-    max_attempts = state.get("max_fix_attempts", 5)
+    max_attempts = state.get(
+        "max_fix_attempts",
+        settings.analysis.MAX_FIX_ATTEMPTS,
+    )
 
     if attempt >= max_attempts:
         return "failed"
@@ -339,24 +539,175 @@ def should_retry(state: FixOpsState):
     return "retry"
 
 
-# --- Создание графа ---
+# ============================================================
+# ROUTER: AFTER TESTS
+# ============================================================
+
+def should_retry(
+    state: FixOpsState,
+):
+
+    # Успешные тесты.
+    if state.get(
+        "tests_passed",
+        False,
+    ):
+        return "success"
+
+    # Инфраструктурная ошибка.
+    if state.get(
+        "test_result_type"
+    ) == "INFRA_FAILURE":
+
+        app_logger.bind(
+            event="workflow_step",
+            operation="router",
+        ).error(
+            "Infrastructure failure detected, stopping."
+        )
+
+        return "failed"
+
+    attempt = state.get(
+        "fix_attempt",
+        0,
+    )
+
+    max_attempts = state.get(
+        "max_fix_attempts",
+        settings.analysis.MAX_FIX_ATTEMPTS,
+    )
+
+    if attempt >= max_attempts:
+        return "failed"
+
+    return "retry"
+
+
+# ============================================================
+# RETRY NODE
+# ============================================================
+
+@log_execution(
+    event="workflow_step",
+    operation="prepare_retry",
+)
+async def prepare_retry_node(
+    state: FixOpsState,
+):
+
+    """
+    Retry НЕ генерирует новый prompt.
+
+    Он только фиксирует факт неудачи.
+
+    После этого workflow снова проходит:
+
+        indexer
+          ↓
+        graph_builder
+          ↓
+        error_analyzer
+          ↓
+        context_builder
+          ↓
+        LLM
+
+    Поэтому LLM получает уже изменённый проект.
+    """
+
+    attempt = state.get(
+        "fix_attempt",
+        0,
+    )
+
+    app_logger.bind(
+        event="workflow_step",
+        operation="prepare_retry",
+    ).warning(
+        f"Preparing retry #{attempt + 1}"
+    )
+
+    return {
+        # Ничего не увеличиваем здесь.
+        #
+        # fix_attempt увеличивается непосредственно
+        # перед новым вызовом LLM.
+        "retry_reason": (
+            state.get("retry_reason")
+            or state.get("fix_error")
+            or "Previous attempt failed."
+        ),
+    }
+
+
+# ============================================================
+# CREATE WORKFLOW
+# ============================================================
+
 def create_workflow():
 
-    workflow = StateGraph(FixOpsState)
+    workflow = StateGraph(
+        FixOpsState
+    )
 
-    workflow.add_node("indexer", indexer_node)
-    workflow.add_node("graph_builder", graph_builder_node)
-    workflow.add_node("error_analyzer", error_analyzer_node)
-    workflow.add_node("context_builder", context_builder_node)
-    workflow.add_node("llm", handle_fix_request)
-    workflow.add_node("apply_fix", apply_fix_node)
-    workflow.add_node("run_tests", run_tests_node)
-    workflow.add_node("prepare_retry", prepare_retry_node)
+    workflow.add_node(
+        "indexer",
+        indexer_node,
+    )
 
-    workflow.set_entry_point("indexer")
+    workflow.add_node(
+        "graph_builder",
+        graph_builder_node,
+    )
 
-    workflow.add_edge("indexer", "graph_builder")
-    workflow.add_edge("graph_builder", "error_analyzer")
+    workflow.add_node(
+        "error_analyzer",
+        error_analyzer_node,
+    )
+
+    workflow.add_node(
+        "context_builder",
+        context_builder_node,
+    )
+
+    workflow.add_node(
+        "llm",
+        handle_fix_request,
+    )
+
+    workflow.add_node(
+        "apply_fix",
+        apply_fix_node,
+    )
+
+    workflow.add_node(
+        "run_tests",
+        run_tests_node,
+    )
+
+    workflow.add_node(
+        "prepare_retry",
+        prepare_retry_node,
+    )
+
+    # --------------------------------------------------------
+    # INITIAL
+    # --------------------------------------------------------
+
+    workflow.set_entry_point(
+        "indexer"
+    )
+
+    workflow.add_edge(
+        "indexer",
+        "graph_builder",
+    )
+
+    workflow.add_edge(
+        "graph_builder",
+        "error_analyzer",
+    )
 
     workflow.add_conditional_edges(
         "error_analyzer",
@@ -367,18 +718,33 @@ def create_workflow():
         },
     )
 
-    workflow.add_edge("context_builder", "llm")
-    workflow.add_edge("llm", "apply_fix")
+    workflow.add_edge(
+        "context_builder",
+        "llm",
+    )
+
+    workflow.add_edge(
+        "llm",
+        "apply_fix",
+    )
+
+    # --------------------------------------------------------
+    # APPLY FIX
+    # --------------------------------------------------------
 
     workflow.add_conditional_edges(
         "apply_fix",
         should_run_tests,
         {
             "run_tests": "run_tests",
-            "fix_error": "prepare_retry",
+            "retry": "prepare_retry",
             "failed": END,
         },
     )
+
+    # --------------------------------------------------------
+    # TESTS
+    # --------------------------------------------------------
 
     workflow.add_conditional_edges(
         "run_tests",
@@ -390,6 +756,19 @@ def create_workflow():
         },
     )
 
-    workflow.add_edge("prepare_retry", "llm")
+    # --------------------------------------------------------
+    # RETRY
+    # --------------------------------------------------------
+
+    # ВАЖНО:
+    #
+    # После failed test мы НЕ идём сразу в LLM.
+    #
+    # Сначала повторно индексируем изменённый проект.
+    #
+    workflow.add_edge(
+        "prepare_retry",
+        "indexer",
+    )
 
     return workflow.compile()

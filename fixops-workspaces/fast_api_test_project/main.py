@@ -58,10 +58,7 @@ def action():
     log.info("Processing action request")
 
     data["count"] += 1
-
-    # --- НАЧАЛО НАМЕРЕННОЙ ОШИБКИ ---
-    result = data["total"] + 1  # <-- BUG: KeyError: 'total'
-    # --- КОНЕЦ НАМЕРЕННОЙ ОШИБКИ ---
+    result = data["total"] + 1
 
     return JSONResponse({"count": data["count"], "result": result})
 
