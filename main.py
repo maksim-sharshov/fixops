@@ -1,6 +1,7 @@
 import docker
 import logging
 import threading
+import time
 
 
 logging.basicConfig(
@@ -11,15 +12,17 @@ logging.basicConfig(
 logger = logging.getLogger("fixops")
 
 
-def watch_container(container):
+def watch_container(container, since):
     logger.info("Watching %s", container.name)
 
     try:
-        stream = container.attach(
+        stream = container.logs(
             stdout=True,
             stderr=True,
             stream=True,
-            logs=False,
+            follow=True,
+            timestamps=True,
+            since=since,
         )
 
         for raw_line in stream:
@@ -32,9 +35,15 @@ def watch_container(container):
                 continue
 
             if "ERROR" in line.upper():
-                logger.error("[FOUND ERROR] %s", line)
+                logger.error(
+                    "[FOUND ERROR] %s",
+                    line,
+                )
             else:
-                logger.info("[LOG] %s", line)
+                logger.info(
+                    "[LOG] %s",
+                    line,
+                )
 
     except Exception:
         logger.exception(
@@ -47,6 +56,11 @@ def main():
     logger.info("FixOps started")
 
     client = docker.from_env()
+
+    # ВАЖНО:
+    # фиксируем время ДО начала чтения контейнеров.
+    # Всё, что было раньше, нас не интересует.
+    started_at = time.time()
 
     containers = client.containers.list(
         filters={
@@ -62,12 +76,12 @@ def main():
     for container in containers:
         thread = threading.Thread(
             target=watch_container,
-            args=(container,),
+            args=(container, started_at),
             daemon=True,
         )
+
         thread.start()
 
-    # Не завершаем FixOps.
     threading.Event().wait()
 
 
