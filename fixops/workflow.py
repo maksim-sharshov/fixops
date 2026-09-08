@@ -157,7 +157,8 @@ async def handle_fix_request(state: FixOpsState):
     if session_id is None:
         session_id = uuid4().hex
 
-    handler = GroqHandler(session_id=session_id)
+    #handler = GroqHandler(session_id=session_id)
+    handler = DeepSeekHandler(session_id=session_id)
     try:
         content = await handler.generate_response(user_message=state["llm_prompt"])
     except Exception as e:

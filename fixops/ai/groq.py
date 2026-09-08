@@ -41,29 +41,22 @@ class GroqHandler(AIHandler):
         prompt = await self.load_prompt()
 
         messages = []
-
         if prompt:
-            messages.append({
-                "role": "system",
-                "content": prompt,
-            })
+            messages.append({"role": "system", "content": prompt})
 
         messages.extend(history)
-
-        messages.append({
-            "role": "user",
-            "content": user_message,
-        })
+        messages.append({"role": "user", "content": user_message})
 
         response = await self.client.chat.completions.create(
             model=self.model_name,
-            messages=messages,  # type: ignore
+            messages=messages,
             stream=False,
         )
 
         raw_content = response.choices[0].message.content
         reply = raw_content.strip() if raw_content else ""
 
+        # Сохраняем шаг диалога в историю
         await HistoryManager.save_message(
             self.session_id,
             role="user",
