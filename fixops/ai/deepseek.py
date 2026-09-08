@@ -50,6 +50,7 @@ class DeepSeekHandler(AIHandler):
         response = await self.client.chat.completions.create(
             model=self.model_name,
             messages=messages,
+            temperature=0.0,
             stream=False,
             extra_body={
                 "thinking": {
