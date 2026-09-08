@@ -12,7 +12,7 @@ logging.basicConfig(
 logger = logging.getLogger("fixops")
 
 
-def watch_container(container, since):
+def watch_container(container, started_at):
     logger.info("Watching %s", container.name)
 
     try:
@@ -22,7 +22,7 @@ def watch_container(container, since):
             stream=True,
             follow=True,
             timestamps=True,
-            since=since,
+            since=started_at,
         )
 
         for raw_line in stream:
@@ -34,14 +34,10 @@ def watch_container(container, since):
             if not line:
                 continue
 
+            # Нам нужны ТОЛЬКО ошибки.
             if "ERROR" in line.upper():
                 logger.error(
-                    "[FOUND ERROR] %s",
-                    line,
-                )
-            else:
-                logger.info(
-                    "[LOG] %s",
+                    "[NEW ERROR] %s",
                     line,
                 )
 
@@ -55,12 +51,11 @@ def watch_container(container, since):
 def main():
     logger.info("FixOps started")
 
-    client = docker.from_env()
-
-    # ВАЖНО:
-    # фиксируем время ДО начала чтения контейнеров.
-    # Всё, что было раньше, нас не интересует.
+    # Момент запуска FixOps.
+    # Всё, что было ДО него, игнорируем.
     started_at = time.time()
+
+    client = docker.from_env()
 
     containers = client.containers.list(
         filters={
