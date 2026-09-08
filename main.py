@@ -1,6 +1,7 @@
 import docker
 import logging
 import threading
+from datetime import datetime, timezone
 
 
 logging.basicConfig(
@@ -11,17 +12,15 @@ logging.basicConfig(
 logger = logging.getLogger("fixops")
 
 
-def watch_container(container):
-    logger.info(
-        "Started watching container: %s",
-        container.name,
-    )
+def watch_container(container, started_at):
+    logger.info("Started watching %s", container.name)
 
     try:
         for raw_line in container.logs(
             stream=True,
             follow=True,
             timestamps=True,
+            since=started_at,
         ):
             line = raw_line.decode(
                 "utf-8",
@@ -33,10 +32,6 @@ def watch_container(container):
                     "[FOUND ERROR] %s",
                     line,
                 )
-
-                # Здесь позже:
-                # create_incident(...)
-
             else:
                 logger.info(
                     "[LOG] %s",
@@ -52,6 +47,10 @@ def watch_container(container):
 
 def main():
     logger.info("FixOps started")
+
+    # Фиксируем момент запуска FixOps.
+    # Всё, что было раньше этого времени, нас НЕ интересует.
+    started_at = datetime.now(timezone.utc)
 
     client = docker.from_env()
 
@@ -71,7 +70,7 @@ def main():
     for container in containers:
         thread = threading.Thread(
             target=watch_container,
-            args=(container,),
+            args=(container, started_at),
             daemon=True,
         )
 
