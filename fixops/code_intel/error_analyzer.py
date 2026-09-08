@@ -21,7 +21,7 @@ error_analyzer.py — превращает "плоскую" ошибку из л
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
+from pathlib import Path
 
 
 class ErrorAnalyzer:
@@ -33,11 +33,16 @@ class ErrorAnalyzer:
 
     def find_node_by_location(self, file: str, function: str) -> str | None:
         """Находит qualname функции по файлу и имени функции из лога."""
+        error_filename = Path(file).name
+
         for m in self.idx.modules:
-            if m.file == file or m.file.endswith(file):
+            indexed_filename = Path(m.file).name
+
+            if indexed_filename == error_filename:
                 for fn in m.functions:
                     if fn.name == function:
                         return fn.qualname
+
         return None
 
     async def _walk_callers(self, qualname: str, depth: int, max_depth: int, seen: set) -> list[dict]:
@@ -45,7 +50,7 @@ class ErrorAnalyzer:
             return []
         seen.add(qualname)
         chain = []
-        
+
         # self.g.callers is likely synchronous but might be fast enough
         callers = await asyncio.to_thread(self.g.callers, qualname)
         for e in callers:
@@ -61,7 +66,7 @@ class ErrorAnalyzer:
             return []
         seen.add(qualname)
         chain = []
-        
+
         # self.g.callees is likely synchronous
         callees = await asyncio.to_thread(self.g.callees, qualname)
         for e in callees:
@@ -109,7 +114,7 @@ class ErrorAnalyzer:
 
         for c in callees_chain:
             _leaves(c)
-            
+
         # Удаляем дубликаты
         return list(dict.fromkeys(candidates))
 

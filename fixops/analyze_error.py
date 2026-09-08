@@ -195,7 +195,7 @@ class AnalyzeJob:
 
 async def main() -> int:
 
-    project_path = r"fixops-workspaces\generator_report"
+    project_path = r"fixops-workspaces\fast_api_test_project"
 
     base_dir = Path(__file__).resolve().parent.parent
     project_root = str(base_dir / project_path)
