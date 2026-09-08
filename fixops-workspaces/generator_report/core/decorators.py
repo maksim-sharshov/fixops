@@ -1,5 +1,6 @@
 import inspect
 import time
+import traceback
 from functools import wraps
 
 from core.logging import get_logger
@@ -23,7 +24,6 @@ def sanitize(value):
     """
 
     if isinstance(value, dict):
-
         return {
             key: "***"
             if key.lower() in SENSITIVE_FIELDS
@@ -32,13 +32,11 @@ def sanitize(value):
         }
 
     if isinstance(value, (list, tuple)):
-
         return [
             sanitize(item)
             for item in value
         ]
 
-    # Не пытаемся сериализовать огромные/сложные объекты
     if isinstance(value, (str, int, float, bool, type(None))):
         return value
 
@@ -52,19 +50,14 @@ def log_execution(
     """
     Логирует выполнение sync/async функции.
 
-    Записывает:
+    При ошибке дополнительно записывает в extra:
 
-    - event
-    - operation
-    - function
-    - module
-    - file
-    - line
-    - status
-    - duration
-    - arguments
-    - exception
-    - traceback
+        file      — файл, где реально произошла ошибка
+        line      — строка, где реально произошла ошибка
+        function  — функция, где реально произошла ошибка
+        error     — тип и сообщение ошибки
+
+    Эти поля используются FixOps.
     """
 
     def decorator(func):
@@ -89,9 +82,7 @@ def log_execution(
                     module=func.__module__,
                 )
 
-                log.debug(
-                    "Function started"
-                )
+                log.debug("Function started")
 
                 try:
 
@@ -123,6 +114,30 @@ def log_execution(
                         time.perf_counter() - start
                     ) * 1000
 
+                    # ============================================
+                    # НАСТОЯЩЕЕ МЕСТО ОШИБКИ
+                    # ============================================
+                    #
+                    # traceback содержит всю цепочку вызовов.
+                    #
+                    # Нам нужен последний кадр:
+                    #
+                    # main.py:63 -> action
+                    #
+                    # а не:
+                    #
+                    # core/decorators.py:... -> sync_wrapper
+                    #
+                    tb = traceback.extract_tb(
+                        exc.__traceback__
+                    )
+
+                    last = tb[-1]
+
+                    # ============================================
+                    # ЛОГ ОШИБКИ
+                    # ============================================
+
                     log.bind(
                         status="error",
                         severity="ERROR",
@@ -130,10 +145,22 @@ def log_execution(
                             duration_ms,
                             2,
                         ),
+
+                        # Реальный файл ошибки.
+                        file=last.filename,
+
+                        # Реальная строка ошибки.
+                        line=last.lineno,
+
+                        # Реальная функция ошибки.
+                        function=last.name,
+
+                        # Информация об exception.
                         error={
                             "type": type(exc).__name__,
                             "message": str(exc),
                         },
+
                         arguments={
                             "args": sanitize(args),
                             "kwargs": sanitize(kwargs),
@@ -142,6 +169,7 @@ def log_execution(
                         "Function failed"
                     )
 
+                    # Передаём ошибку дальше.
                     raise
 
             return async_wrapper
@@ -162,9 +190,7 @@ def log_execution(
                 module=func.__module__,
             )
 
-            log.debug(
-                "Function started"
-            )
+            log.debug("Function started")
 
             try:
 
@@ -196,6 +222,31 @@ def log_execution(
                     time.perf_counter() - start
                 ) * 1000
 
+                # ================================================
+                # НАСТОЯЩЕЕ МЕСТО ОШИБКИ
+                # ================================================
+                #
+                # Например, если ошибка:
+                #
+                # main.py:63
+                # result = data["total"] + 1
+                #
+                # last будет содержать:
+                #
+                # filename = ".../main.py"
+                # lineno   = 63
+                # name     = "action"
+                #
+                tb = traceback.extract_tb(
+                    exc.__traceback__
+                )
+
+                last = tb[-1]
+
+                # ================================================
+                # ЛОГ ОШИБКИ
+                # ================================================
+
                 log.bind(
                     status="error",
                     severity="ERROR",
@@ -203,10 +254,23 @@ def log_execution(
                         duration_ms,
                         2,
                     ),
+
+                    # Реальный файл, где произошла ошибка.
+                    file=last.filename,
+
+                    # Реальная строка ошибки.
+                    line=last.lineno,
+
+                    # Реальная функция ошибки.
+                    function=last.name,
+
+                    # Тип и сообщение ошибки.
                     error={
                         "type": type(exc).__name__,
                         "message": str(exc),
                     },
+
+                    # Аргументы функции.
                     arguments={
                         "args": sanitize(args),
                         "kwargs": sanitize(kwargs),
@@ -215,6 +279,7 @@ def log_execution(
                     "Function failed"
                 )
 
+                # Не поглощаем исключение.
                 raise
 
         return sync_wrapper
