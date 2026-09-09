@@ -144,7 +144,7 @@ class DockerLogWatcher:
             "error": extra["error"],
         }
 
-        log.error(
+        log.warning(
             "Error detected: {}:{}",
             error_log["file"],
             error_log["line"],
