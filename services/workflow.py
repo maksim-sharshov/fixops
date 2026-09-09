@@ -48,6 +48,7 @@ class FixOpsState(TypedDict, total=False):
     fixed_file: str | None
     fix_applied: bool
     fix_error: str | None
+    fix_diff: str | None
 
     test_command: list[str]
     tests_passed: bool
@@ -236,37 +237,44 @@ async def handle_fix_request(state: FixOpsState):
 @log_execution(event="workflow_step", operation="apply_fix")
 async def apply_fix_node(state: FixOpsState):
     try:
-        data = json.loads(
-            state["llm_response"]
-        )
-
+        data = json.loads(state["llm_response"])
         if "choices" in data:
             content = data["choices"][0]["message"]["content"]
         else:
             content = state["llm_response"]
-
     except json.JSONDecodeError:
         content = state["llm_response"]
 
-    executor = FixExecutor(
-        project_root=state["project_root"]
-    )
+    executor = FixExecutor(project_root=state["project_root"])
 
     try:
-        file_path, changed = executor.apply_fix(
-            content
-        )
+        file_path, changed = executor.apply_fix(content)
+
+        diff = None
+        if changed and file_path:
+            diff_proc = await asyncio.to_thread(
+                subprocess.run,
+                ["git", "diff", "--", file_path],
+                cwd=state["project_root"],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+            )
+            diff = diff_proc.stdout
 
         return {
             "fixed_file": file_path,
             "fix_applied": changed,
             "fix_error": None,
+            "fix_diff": diff,
         }
 
     except Exception as e:
         return {
             "fix_applied": False,
             "fix_error": str(e),
+            "fix_diff": None,
         }
 
 

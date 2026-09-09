@@ -27,6 +27,7 @@ import asyncio
 from uuid import uuid4
 
 from config import settings
+from core.events import events
 from code_intel.html_view import save_html_view
 from services.workflow import create_workflow, FixOpsState
 
@@ -114,6 +115,12 @@ class AnalyzeJob:
 
     async def analyze(self) -> dict:
         """Возвращает результат анализа + артефакты для сохранения."""
+
+        await events.emit(
+            self.job_id,
+            "workflow_started",
+        )
+
         initial_state: FixOpsState = {
             "job_id": self.job_id,
             "project_root": self.project_root,
@@ -136,6 +143,7 @@ class AnalyzeJob:
             "fixed_file": None,
             "fix_applied": False,
             "fix_error": None,
+            "fix_diff": None,
 
             "test_command": [],
             "tests_passed": False,
@@ -148,8 +156,13 @@ class AnalyzeJob:
             "fix_attempt": 0,
             "max_fix_attempts": settings.analysis.MAX_FIX_ATTEMPTS,
         }
-
         final_state = await self.workflow.ainvoke(initial_state)
+
+        await events.emit(
+            self.job_id,
+            "workflow_finished",
+            status="success" if final_state.get("tests_passed") else "failed",
+        )
 
         # Отображение результата обратно в исходный формат артефакта для экономии времени
         return {

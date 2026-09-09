@@ -16,6 +16,23 @@ SENSITIVE_FIELDS = {
     "secret",
 }
 
+import time
+import functools
+
+from core.events import events
+from core.logging import app_logger
+
+NODE_LABELS_RU = {
+    "indexer": "Сканирование проекта",
+    "graph_builder": "Построение графа связей",
+    "error_analyzer": "Анализ ошибки",
+    "context_builder": "Сбор контекста",
+    "llm": "Запрос к LLM",
+    "apply_fix": "Применение исправления",
+    "run_tests": "Запуск тестов",
+    "reset_project": "Откат проекта",
+}
+
 
 def sanitize(value):
     """
@@ -50,30 +67,66 @@ def log_execution(
     """
     Логирует выполнение sync/async функции.
 
-    При ошибке дополнительно записывает в extra:
+    Для FixOps async-ноды дополнительно отправляет события:
 
-        file      — файл, где реально произошла ошибка
-        line      — строка, где реально произошла ошибка
-        function  — функция, где реально произошла ошибка
-        error     — тип и сообщение ошибки
+        node_started
+        node_completed
+        node_failed
 
-    Эти поля используются FixOps.
+    При ошибке записывает:
+
+        file       — файл, где реально произошла ошибка
+        line       — строка ошибки
+        function   — функция, где произошла ошибка
+        error      — тип и сообщение ошибки
+        arguments  — аргументы функции
     """
 
     def decorator(func):
 
         operation_name = operation or func.__name__
 
-        # ====================================================
         # ASYNC
-        # ====================================================
-
         if inspect.iscoroutinefunction(func):
 
-            @wraps(func)
+            @functools.wraps(func)
             async def async_wrapper(*args, **kwargs):
 
                 start = time.perf_counter()
+
+                # FixOps state находится первым аргументом
+                state = (
+                    args[0]
+                    if args and isinstance(args[0], dict)
+                    else None
+                )
+
+                job_id = (
+                    state.get("job_id")
+                    if state
+                    else None
+                )
+
+                label = NODE_LABELS_RU.get(
+                    operation_name,
+                    operation_name,
+                )
+
+                attempt = (
+                    state.get("fix_attempt", 0)
+                    if state
+                    else 0
+                )
+
+                # NODE STARTED
+                if job_id:
+                    await events.emit(
+                        job_id,
+                        "node_started",
+                        node=operation_name,
+                        label=label,
+                        attempt=attempt,
+                    )
 
                 log = get_logger(
                     event=event,
@@ -86,6 +139,7 @@ def log_execution(
 
                 try:
 
+                    # EXECUTE
                     result = await func(
                         *args,
                         **kwargs,
@@ -95,6 +149,8 @@ def log_execution(
                         time.perf_counter() - start
                     ) * 1000
 
+
+                    # LOG SUCCESS
                     log.bind(
                         status="success",
                         severity="INFO",
@@ -106,6 +162,23 @@ def log_execution(
                         "Function completed"
                     )
 
+
+                    # NODE COMPLETED
+                    if job_id:
+                        await events.emit(
+                            job_id,
+                            "node_completed",
+                            node=operation_name,
+                            label=label,
+                            duration_ms=int(
+                                duration_ms
+                            ),
+                            data=_summarize(
+                                operation_name,
+                                result,
+                            ),
+                        )
+
                     return result
 
                 except Exception as exc:
@@ -114,30 +187,39 @@ def log_execution(
                         time.perf_counter() - start
                     ) * 1000
 
-                    # ============================================
-                    # НАСТОЯЩЕЕ МЕСТО ОШИБКИ
-                    # ============================================
-                    #
-                    # traceback содержит всю цепочку вызовов.
-                    #
-                    # Нам нужен последний кадр:
-                    #
-                    # main.py:63 -> action
-                    #
-                    # а не:
-                    #
-                    # core/decorators.py:... -> sync_wrapper
-                    #
                     tb = traceback.extract_tb(
                         exc.__traceback__
                     )
 
-                    last = tb[-1]
+                    last = tb[-1] if tb else None
 
-                    # ============================================
-                    # ЛОГ ОШИБКИ
-                    # ============================================
 
+                    # ERROR DATA
+                    file = (
+                        last.filename
+                        if last
+                        else None
+                    )
+
+                    line = (
+                        last.lineno
+                        if last
+                        else None
+                    )
+
+                    function = (
+                        last.name
+                        if last
+                        else None
+                    )
+
+                    error_data = {
+                        "type": type(exc).__name__,
+                        "message": str(exc),
+                    }
+
+
+                    # LOG ERROR
                     log.bind(
                         status="error",
                         severity="ERROR",
@@ -145,22 +227,10 @@ def log_execution(
                             duration_ms,
                             2,
                         ),
-
-                        # Реальный файл ошибки.
-                        file=last.filename,
-
-                        # Реальная строка ошибки.
-                        line=last.lineno,
-
-                        # Реальная функция ошибки.
-                        function=last.name,
-
-                        # Информация об exception.
-                        error={
-                            "type": type(exc).__name__,
-                            "message": str(exc),
-                        },
-
+                        file=file,
+                        line=line,
+                        function=function,
+                        error=error_data,
                         arguments={
                             "args": sanitize(args),
                             "kwargs": sanitize(kwargs),
@@ -169,16 +239,25 @@ def log_execution(
                         "Function failed"
                     )
 
-                    # Передаём ошибку дальше.
+
+                    # NODE FAILED
+                    if job_id:
+                        await events.emit(
+                            job_id,
+                            "node_failed",
+                            node=operation_name,
+                            label=label,
+                            error=str(exc),
+                        )
+
+                    # Не поглощаем ошибку
                     raise
 
             return async_wrapper
 
-        # ====================================================
-        # SYNC
-        # ====================================================
 
-        @wraps(func)
+        # SYNC
+        @functools.wraps(func)
         def sync_wrapper(*args, **kwargs):
 
             start = time.perf_counter()
@@ -194,6 +273,7 @@ def log_execution(
 
             try:
 
+                # EXECUTE
                 result = func(
                     *args,
                     **kwargs,
@@ -203,6 +283,7 @@ def log_execution(
                     time.perf_counter() - start
                 ) * 1000
 
+                # LOG SUCCESS
                 log.bind(
                     status="success",
                     severity="INFO",
@@ -222,31 +303,37 @@ def log_execution(
                     time.perf_counter() - start
                 ) * 1000
 
-                # ================================================
-                # НАСТОЯЩЕЕ МЕСТО ОШИБКИ
-                # ================================================
-                #
-                # Например, если ошибка:
-                #
-                # main.py:63
-                # result = data["total"] + 1
-                #
-                # last будет содержать:
-                #
-                # filename = ".../main.py"
-                # lineno   = 63
-                # name     = "action"
-                #
                 tb = traceback.extract_tb(
                     exc.__traceback__
                 )
 
-                last = tb[-1]
+                last = tb[-1] if tb else None
 
-                # ================================================
-                # ЛОГ ОШИБКИ
-                # ================================================
+                # ERROR DATA
+                file = (
+                    last.filename
+                    if last
+                    else None
+                )
 
+                line = (
+                    last.lineno
+                    if last
+                    else None
+                )
+
+                function = (
+                    last.name
+                    if last
+                    else None
+                )
+
+                error_data = {
+                    "type": type(exc).__name__,
+                    "message": str(exc),
+                }
+
+                # LOG ERROR
                 log.bind(
                     status="error",
                     severity="ERROR",
@@ -254,23 +341,10 @@ def log_execution(
                         duration_ms,
                         2,
                     ),
-
-                    # Реальный файл, где произошла ошибка.
-                    file=last.filename,
-
-                    # Реальная строка ошибки.
-                    line=last.lineno,
-
-                    # Реальная функция ошибки.
-                    function=last.name,
-
-                    # Тип и сообщение ошибки.
-                    error={
-                        "type": type(exc).__name__,
-                        "message": str(exc),
-                    },
-
-                    # Аргументы функции.
+                    file=file,
+                    line=line,
+                    function=function,
+                    error=error_data,
                     arguments={
                         "args": sanitize(args),
                         "kwargs": sanitize(kwargs),
@@ -279,9 +353,65 @@ def log_execution(
                     "Function failed"
                 )
 
-                # Не поглощаем исключение.
+                # Не поглощаем ошибку
                 raise
 
         return sync_wrapper
 
     return decorator
+
+
+def _summarize(
+    operation: str,
+    result: dict,
+) -> dict:
+    """
+    Короткая сводка для FixOps events.
+
+    Не отправляем большие блоки текста.
+    """
+
+    if operation == "error_analyzer":
+
+        node = (
+            result
+            .get("analysis_result", {})
+            .get("resolved_node")
+        )
+
+        return {
+            "resolved": bool(node),
+        }
+
+    if operation == "apply_fix":
+
+        return {
+            "fixed_file": result.get(
+                "fixed_file"
+            ),
+            "fix_applied": result.get(
+                "fix_applied"
+            ),
+            "fix_error": result.get(
+                "fix_error"
+            ),
+        }
+
+    if operation == "run_tests":
+
+        return {
+            "tests_passed": result.get(
+                "tests_passed"
+            ),
+            "reproduction_passed": result.get(
+                "reproduction_passed"
+            ),
+            "stdout_tail": (
+                result.get("test_stdout") or ""
+            )[-500:],
+            "stderr_tail": (
+                result.get("test_stderr") or ""
+            )[-500:],
+        }
+
+    return {}

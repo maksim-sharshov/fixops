@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>FixOps</title>
+
+    <style>
+        body {
+            background: #05070A;
+            color: #E6EDF3;
+            font-family: Arial, sans-serif;
+            padding: 40px;
+        }
+
+        button {
+            padding: 12px 20px;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+
+        input {
+            padding: 12px;
+            width: 400px;
+            margin-right: 10px;
+        }
+
+        #events {
+            background: #0D1117;
+            padding: 20px;
+            border-radius: 8px;
+            min-height: 400px;
+        }
+
+        .event {
+            padding: 10px 0;
+            border-bottom: 1px solid #161B22;
+        }
+
+        .success {
+            color: #7ee787;
+        }
+
+        .error {
+            color: #ff7b72;
+        }
+    </style>
+</head>
+
+<body>
+
+<h1>FixOps</h1>
+
+<div>
+    <input
+        id="project"
+        value="fast_api_test_project"
+        placeholder="Project path"
+    >
+
+    <button onclick="startJob()">
+        Start FixOps
+    </button>
+</div>
+
+<div>
+    Job ID:
+    <span id="jobId">—</span>
+</div>
+
+<h2>Workflow</h2>
+
+<div id="events"></div>
+
+
+<script>
+
+let socket = null;
+
+
+async function startJob() {
+
+    const projectPath =
+        document.getElementById("project").value;
+
+    document.getElementById("events").innerHTML = "";
+
+
+    // 1. Создаём job
+    const response = await fetch(
+        "http://127.0.0.1:8000/jobs",
+        {
+            method: "POST",
+
+            headers: {
+                "Content-Type": "application/json"
+            },
+
+            body: JSON.stringify({
+                project_path: projectPath
+            })
+        }
+    );
+
+
+    if (!response.ok) {
+
+        const error =
+            await response.json();
+
+        addEvent({
+            event: "error",
+            error: error.detail
+        });
+
+        return;
+    }
+
+
+    const data =
+        await response.json();
+
+
+    const jobId =
+        data.job_id;
+
+
+    document.getElementById("jobId")
+        .textContent = jobId;
+
+
+    // 2. Подключаем WebSocket
+    connectWebSocket(jobId);
+}
+
+
+function connectWebSocket(jobId) {
+
+    socket = new WebSocket(
+        `ws://127.0.0.1:8000/ws/jobs/${jobId}`
+    );
+
+
+    socket.onopen = () => {
+
+        addEvent({
+            event: "websocket_connected"
+        });
+
+    };
+
+
+    socket.onmessage = (message) => {
+
+        const data =
+            JSON.parse(message.data);
+
+        addEvent(data);
+
+    };
+
+
+    socket.onerror = () => {
+
+        addEvent({
+            event: "websocket_error"
+        });
+
+    };
+
+
+    socket.onclose = () => {
+
+        addEvent({
+            event: "websocket_closed"
+        });
+
+    };
+}
+
+
+function addEvent(data) {
+
+    const container =
+        document.getElementById("events");
+
+
+    const element =
+        document.createElement("div");
+
+    element.className = "event";
+
+
+    let text =
+        `[${data.event}]`;
+
+
+    if (data.node) {
+        text += ` ${data.node}`;
+    }
+
+
+    if (data.label) {
+        text += ` — ${data.label}`;
+    }
+
+
+    if (data.status) {
+        text += ` | status=${data.status}`;
+    }
+
+
+    if (data.duration_ms) {
+        text += ` | ${data.duration_ms} ms`;
+    }
+
+
+    if (data.error) {
+        text += ` | ${data.error}`;
+        element.classList.add("error");
+    }
+
+
+    if (
+        data.event === "workflow_finished"
+        && data.status === "success"
+    ) {
+        element.classList.add("success");
+    }
+
+
+    element.textContent = text;
+
+    container.appendChild(element);
+
+    container.scrollTop =
+        container.scrollHeight;
+}
+
+</script>
+
+</body>
+</html>
