@@ -20,11 +20,6 @@ services:
       # FixOps читает и изменяет файлы прямо здесь.
       - /home/virtu/projects:/projects
 
-    environment:
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      REDIS_PASSWORD: ${PASSWORD}
-
 
   redis:
     image: redis/redis-stack:latest
@@ -36,16 +31,13 @@ services:
     command:
       - redis-server
       - --requirepass
-      - ${PASSWORD}
+      - ${REDIS_PASSWORD}
 
     expose:
       - "6379"
 
     volumes:
       - redis-data:/data
-
-    env_file:
-      - .env
 
 
 volumes:
