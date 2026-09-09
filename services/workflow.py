@@ -242,11 +242,6 @@ async def handle_fix_request(state: FixOpsState):
     if session_id is None:
         session_id = uuid4().hex
 
-    # На retry создаём НОВУЮ LLM-сессию.
-    #
-    # Это важно:
-    # модель не должна слепо продолжать старый разговор,
-    # в котором уже был выбран предыдущий patch.
     if state.get("fix_attempt", 0) > 0:
         session_id = uuid4().hex
 
