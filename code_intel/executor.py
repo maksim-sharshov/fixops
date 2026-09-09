@@ -3,9 +3,10 @@ import re
 import ast
 import difflib
 import subprocess
-
-from dataclasses import dataclass
 from pathlib import Path
+from dataclasses import dataclass
+
+from core.decorators import log_execution, get_logger
 
 
 @dataclass
@@ -62,11 +63,8 @@ class FixExecutor:
     def _normalize(text: str) -> str:
         """Нормализует текст для сравнения: унифицирует окончания строк,
         убирает концевые пробелы на каждой строке."""
-        # Унифицируем CRLF -> LF
         text = text.replace("\r\n", "\n").replace("\r", "\n")
-        # Убираем trailing whitespace на каждой строке
         lines = [line.rstrip() for line in text.split("\n")]
-        # Убираем пустые строки в конце
         while lines and lines[-1] == "":
             lines.pop()
         return "\n".join(lines)
@@ -109,12 +107,21 @@ class FixExecutor:
 
         return None, best_ratio
 
+    @log_execution(event="executor.apply_fix")
     def apply_fix(self, response: str) -> tuple[str | None, bool]:
-        # Ищем ВСЕ блоки fix
-        fix_blocks = re.findall(r"```fix\s*(.*?)```", response, re.DOTALL)
+        """Применяет исправления и создаёт тесты из ответа LLM."""
+        log = get_logger(event="executor.apply_fix")
+
+        fix_blocks = re.findall(
+            r"```fix\s*(.*?)```",
+            response,
+            re.DOTALL,
+        )
 
         if not fix_blocks:
-            raise ValueError("LLM response does not contain ```fix block")
+            raise ValueError(
+                "LLM response does not contain ```fix block"
+            )
 
         any_changed = False
         last_file_path = None
@@ -132,7 +139,10 @@ class FixExecutor:
             )
 
             if not match:
-                print(f"[fix #{idx}] Warning: invalid fix block format, skipping")
+                log.warning(
+                    "Invalid fix block, skipping",
+                    fix_number=idx,
+                )
                 continue
 
             file_path = match.group(1).strip()
@@ -142,79 +152,124 @@ class FixExecutor:
             path = self.project_root / file_path
 
             if not path.exists():
-                print(f"[fix #{idx}] Warning: File not found, skipping: {file_path}")
+                log.warning(
+                    "File not found, skipping",
+                    file=file_path,
+                )
                 continue
 
-            content = path.read_text(encoding="utf-8")
+            content = path.read_text(
+                encoding="utf-8"
+            )
 
-            # === ДЕТАЛЬНОЕ ЛОГИРОВАНИЕ ===
-            print(f"\n{'='*70}")
-            print(f"[fix #{idx}] Applying fix to: {file_path}")
-            print(f"[fix #{idx}] SEARCH length: {len(search)} chars, "
-                  f"{len(search.splitlines())} lines")
-            print(f"[fix #{idx}] REPLACE length: {len(replace)} chars, "
-                  f"{len(replace.splitlines())} lines")
-            print(f"[fix #{idx}] SEARCH (repr, first 300 chars):")
-            print(repr(search[:300]))
-            print(f"\n[fix #{idx}] File content (repr, first 300 chars):")
-            print(repr(content[:300]))
-
-            # === ПОИСК СОВПАДЕНИЯ ===
             matched_fragment = None
             match_type = None
 
-            # 1. Точное совпадение
             if search in content:
                 matched_fragment = search
                 match_type = "exact"
+
             else:
-                # 2. Нормализованное совпадение (пробелы/окончания строк)
                 search_norm = self._normalize(search)
                 content_norm = self._normalize(content)
+
                 if search_norm in content_norm:
                     matched_fragment = search
                     match_type = "normalized"
+
                 else:
-                    # 3. Fuzzy matching
-                    fuzzy_match, ratio = self._find_best_match(search, content)
+                    fuzzy_match, ratio = self._find_best_match(
+                        search,
+                        content,
+                    )
+
                     if fuzzy_match is not None:
                         matched_fragment = fuzzy_match
-                        match_type = f"fuzzy ({ratio:.2%})"
-                        print(f"[fix #{idx}] ⚠️ Using fuzzy match "
-                              f"(similarity: {ratio:.2%})")
-                        print(f"[fix #{idx}] Fuzzy matched fragment (repr):")
-                        print(repr(fuzzy_match[:300]))
+                        match_type = "fuzzy"
+
+                        log.warning(
+                            "Fuzzy match used",
+                            file=file_path,
+                            similarity=f"{ratio:.2%}",
+                        )
 
             if matched_fragment is None:
-                print(f"\n[fix #{idx}] ❌ SEARCH block NOT FOUND in {file_path}")
-                print(f"[fix #{idx}] Full SEARCH block:")
-                print(search)
-                print(f"\n[fix #{idx}] Full file content:")
-                print(content)
-                print(f"{'='*70}\n")
+                log.error(
+                    "Search block not found",
+                    file=file_path,
+                )
                 continue
 
-            # Применяем замену
-            print(f"[fix #{idx}] ✅ Match type: {match_type}")
-            new_content = content.replace(matched_fragment, replace, 1)
-            path.write_text(new_content, encoding="utf-8")
+            new_content = content.replace(
+                matched_fragment,
+                replace,
+                1,
+            )
+
+            path.write_text(
+                new_content,
+                encoding="utf-8",
+            )
+
             any_changed = True
             last_file_path = file_path
-            print(f"{'='*70}\n")
 
-        # Обработка тестов
-        test_blocks = re.findall(r"```test\s*(.*?)```", response, re.DOTALL)
+            log.info(
+                "Fix applied",
+                file=file_path,
+                match=match_type,
+            )
+
+        test_blocks = re.findall(
+            r"```test\s*(.*?)```",
+            response,
+            re.DOTALL,
+        )
+
         for idx, test_block in enumerate(test_blocks, 1):
-            file_match = re.search(r"FILE:\s*(.+?)\n(.*)", test_block, re.DOTALL)
-            if file_match:
-                test_path = self.project_root / file_match.group(1).strip()
-                test_content = file_match.group(2).strip()
-                test_path.parent.mkdir(parents=True, exist_ok=True)
-                test_path.write_text(test_content, encoding="utf-8")
-                any_changed = True
-                print(f"[test #{idx}] ✅ Written: {test_path}")
+            file_match = re.search(
+                r"FILE:\s*(.+?)\n(.*)",
+                test_block,
+                re.DOTALL,
+            )
+
+            if not file_match:
+                log.warning(
+                    "Invalid test block, skipping",
+                    test_number=idx,
+                )
+                continue
+
+            test_path = (
+                self.project_root
+                / file_match.group(1).strip()
+            )
+
+            test_content = file_match.group(2).strip()
+
+            test_path.parent.mkdir(
+                parents=True,
+                exist_ok=True,
+            )
+
+            test_path.write_text(
+                test_content,
+                encoding="utf-8",
+            )
+
+            any_changed = True
+
+            log.info(
+                "Test created",
+                file=str(
+                    test_path.relative_to(
+                        self.project_root
+                    )
+                ),
+            )
 
         return last_file_path, any_changed
+
 
     def run_tests(self, command: list[str]) -> TestResult:
         env = os.environ.copy()
