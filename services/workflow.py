@@ -11,7 +11,6 @@ from langgraph.graph import StateGraph, END
 
 from core.decorators import log_execution
 from core.logging import app_logger
-from core.events import events
 
 from code_intel.indexer import ProjectIndexer
 from code_intel.graph import GraphBuilder
