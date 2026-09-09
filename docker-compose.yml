@@ -16,11 +16,9 @@ services:
       # FixOps наблюдает Docker
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
-      # Исходные Git-репозитории — только чтение
-      - /home/virtu/projects:/projects:ro
-
-      # Здесь FixOps может создавать и изменять workspaces
-      - /home/virtu/fixops-workspaces:/workspaces
+      # Git-репозитории проектов.
+      # FixOps читает и изменяет файлы прямо здесь.
+      - /home/virtu/projects:/projects
 
     environment:
       REDIS_HOST: redis
