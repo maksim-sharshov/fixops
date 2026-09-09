@@ -218,7 +218,11 @@ class FixExecutor:
 
     def run_tests(self, command: list[str]) -> TestResult:
         env = os.environ.copy()
-        env["PYTHONPATH"] = f"{self.project_root};{self.project_root.parent}"
+
+        env["PYTHONPATH"] = (
+            f"{self.project_root}{os.pathsep}{self.project_root.parent}"
+        )
+
         env["LOG_DIR"] = str(self.project_root / "logs")
         env["APP_LOG_DIR"] = str(self.project_root / "logs")
 
@@ -230,21 +234,28 @@ class FixExecutor:
             text=True,
         )
 
-        # Классификация результата
         if process.returncode == 0:
             result_type = "SUCCESS"
+
         elif process.returncode == 5:
-            # pytest exit code 5 = no tests collected
-            result_type = "CODE_FAILURE"  # ← это ошибка кода, а не инфраструктуры!
-            print(f"DEBUG: No tests collected (pytest exit code 5).")
-        elif ("ModuleNotFoundError" in (process.stderr + process.stdout)
-              or "ImportError" in (process.stderr + process.stdout)):
+            result_type = "CODE_FAILURE"
+            print("DEBUG: No tests collected (pytest exit code 5).")
+
+        elif (
+            "ModuleNotFoundError" in (process.stderr + process.stdout)
+            or "ImportError" in (process.stderr + process.stdout)
+        ):
             result_type = "INFRA_FAILURE"
+
         elif process.returncode == 1:
             result_type = "CODE_FAILURE"
+
         else:
             result_type = "INFRA_FAILURE"
-            print(f"DEBUG: Infrastructure failure. Pytest returncode: {process.returncode}")
+            print(
+                f"DEBUG: Infrastructure failure. "
+                f"Pytest returncode: {process.returncode}"
+            )
 
         return TestResult(
             success=process.returncode == 0,
