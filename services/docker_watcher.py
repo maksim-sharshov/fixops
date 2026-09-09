@@ -1,3 +1,4 @@
+import os
 import json
 import docker
 import asyncio
@@ -129,8 +130,15 @@ class DockerLogWatcher:
         record = data.get("record", {})
         extra = record.get("extra", {})
 
+        file_path = extra["file"]
+
+        if file_path.startswith("/app/"):
+            file_path = file_path.removeprefix("/app/")
+
+        file_path = os.path.join(project_root, file_path)
+
         error_log = {
-            "file": extra["file"],
+            "file": file_path,
             "line": int(extra["line"]),
             "function": extra["function"],
             "error": extra["error"],
