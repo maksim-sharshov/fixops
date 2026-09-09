@@ -606,7 +606,6 @@ def create_workflow():
             "failed": END,
         },
     )
-
     workflow.add_conditional_edges(
         "run_tests",
         should_retry,
