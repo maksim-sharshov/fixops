@@ -1,13 +1,13 @@
-import asyncio
 import json
+import docker
+import asyncio
 from collections import deque
 
-import docker
-
 from config import settings
-from analyze_error import AnalyzeJob
 from core.logging import get_logger
 from core.decorators import log_execution
+
+from services.analyze_error import AnalyzeJob
 
 
 class DockerLogWatcher:
