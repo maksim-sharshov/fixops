@@ -180,6 +180,8 @@ class AnalyzeJob:
             test_result_type=final_state.get(
                 "test_result_type"
             ),
+            test_stdout=final_state.get("test_stdout", ""),
+            test_stderr=final_state.get("test_stderr", ""),
 
             # Что отправляли LLM
             llm_prompt=final_state.get("llm_prompt"),

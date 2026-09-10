@@ -238,36 +238,87 @@ async def handle_fix_request(state: FixOpsState):
 async def apply_fix_node(state: FixOpsState):
     try:
         data = json.loads(state["llm_response"])
+
         if "choices" in data:
             content = data["choices"][0]["message"]["content"]
         else:
             content = state["llm_response"]
+
     except json.JSONDecodeError:
         content = state["llm_response"]
 
-    executor = FixExecutor(project_root=state["project_root"])
+    executor = FixExecutor(
+        project_root=state["project_root"]
+    )
 
     try:
+        file_path = None
+
+        # Запоминаем содержимое файлов до исправления
+        before = {}
+
+        for root, _, files in os.walk(state["project_root"]):
+            for filename in files:
+                if filename.endswith(".py"):
+                    path = os.path.join(root, filename)
+
+                    try:
+                        with open(
+                            path,
+                            "r",
+                            encoding="utf-8",
+                        ) as f:
+                            before[path] = f.read()
+                    except Exception:
+                        pass
+
         file_path, changed = executor.apply_fix(content)
 
-        diff = None
-        if changed and file_path:
-            diff_proc = await asyncio.to_thread(
-                subprocess.run,
-                ["git", "diff", "--", file_path],
-                cwd=state["project_root"],
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-            )
-            diff = diff_proc.stdout
+        # Ищем реальные изменения
+        changed_files = []
+        diffs = []
+
+        for path, old_content in before.items():
+            if not os.path.exists(path):
+                continue
+
+            try:
+                with open(
+                    path,
+                    "r",
+                    encoding="utf-8",
+                ) as f:
+                    new_content = f.read()
+            except Exception:
+                continue
+
+            if old_content != new_content:
+                relative_path = os.path.relpath(
+                    path,
+                    state["project_root"],
+                )
+
+                changed_files.append(relative_path)
+
+                import difflib
+
+                diff = "".join(
+                    difflib.unified_diff(
+                        old_content.splitlines(True),
+                        new_content.splitlines(True),
+                        fromfile=relative_path,
+                        tofile=relative_path,
+                    )
+                )
+
+                if diff:
+                    diffs.append(diff)
 
         return {
             "fixed_file": file_path,
             "fix_applied": changed,
             "fix_error": None,
-            "fix_diff": diff,
+            "fix_diff": "\n".join(diffs),
         }
 
     except Exception as e:
