@@ -283,7 +283,11 @@ async def apply_fix_node(state: FixOpsState):
 async def run_tests_node(state: FixOpsState):
     command = (
         state.get("test_command")
-        or ["pytest"]
+        or [
+            sys.executable,
+            "-m",
+            "pytest",
+        ]
     )
 
     executor = FixExecutor(
