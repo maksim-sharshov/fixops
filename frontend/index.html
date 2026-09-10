@@ -1846,7 +1846,11 @@
                 ? data.fixed_file
                 : "No file changed";
 
-        renderDiff(data.fix_diff);
+        if (data.fix_diff && data.fix_diff.trim()) {
+            renderDiff(data.fix_diff);
+        } else {
+            renderDiff("");
+        }
 
         const testsPassed =
             data.tests_passed;
@@ -1913,12 +1917,14 @@
         );
 
         stdout.textContent =
-            data.test_stdout ||
-            "No stdout.";
+            data.test_stdout && data.test_stdout.trim()
+                ? data.test_stdout
+                : "No stdout.";
 
         stderr.textContent =
-            data.test_stderr ||
-            "No stderr.";
+            data.test_stderr && data.test_stderr.trim()
+                ? data.test_stderr
+                : "No stderr.";
 
         renderGeneratedTests(
             data.llm_response
