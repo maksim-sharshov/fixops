@@ -52,6 +52,8 @@ services:
 
     command:
       - redis-server
+      - --protected-mode
+      - "no"
       - --requirepass
       - ${REDIS_PASSWORD}
 
