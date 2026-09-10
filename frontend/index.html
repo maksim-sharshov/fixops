@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -55,7 +54,7 @@
 
         /* =========================
            APP
-        ========================= */
+        ========================== */
 
         .app {
             display: flex;
@@ -65,7 +64,7 @@
 
         /* =========================
            SIDEBAR
-        ========================= */
+        ========================== */
 
         .sidebar {
             position: relative;
@@ -360,7 +359,7 @@
 
         /* =========================
            MAIN
-        ========================= */
+        ========================== */
 
         .main {
             flex: 1;
@@ -442,7 +441,7 @@
 
         /* =========================
            START CARD
-        ========================= */
+        ========================== */
 
         .start-card {
             padding: 18px;
@@ -460,55 +459,22 @@
             gap: 10px;
         }
 
-        .project-input {
-            flex: 1;
-            min-width: 0;
-
-            height: 44px;
-            padding: 0 13px;
-
-            border: 1px solid var(--border);
-            border-radius: 9px;
-
-            outline: none;
-
-            color: var(--text);
-            background: #080B10;
-
-            font-size: 13px;
+        .monitor-status {
+            width: 100%;
         }
 
-        .project-input:focus {
-            border-color: rgba(88,166,255,.6);
-            box-shadow: 0 0 0 3px rgba(88,166,255,.08);
+        .monitor-status-title {
+            color: var(--green);
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: .08em;
         }
 
-        .start-btn {
-            height: 44px;
-            padding: 0 19px;
-
-            border: 1px solid rgba(88,166,255,.4);
-            border-radius: 9px;
-
-            color: white;
-            background: rgba(88,166,255,.13);
-
-            cursor: pointer;
-
-            font-size: 12px;
-            font-weight: 700;
-
-            transition: .2s;
-        }
-
-        .start-btn:hover:not(:disabled) {
-            background: rgba(88,166,255,.2);
-            border-color: var(--blue);
-        }
-
-        .start-btn:disabled {
-            cursor: not-allowed;
-            opacity: .5;
+        .monitor-status-text {
+            margin-top: 7px;
+            color: var(--muted);
+            font-size: 11px;
+            line-height: 1.5;
         }
 
         .api-error {
@@ -532,7 +498,7 @@
 
         /* =========================
            RESULT
-        ========================= */
+        ========================== */
 
         .result-card {
             display: none;
@@ -602,7 +568,7 @@
 
         /* =========================
            SECTION CARDS
-        ========================= */
+        ========================== */
 
         .section {
             margin-bottom: 14px;
@@ -665,7 +631,7 @@
 
         /* =========================
            DIFF
-        ========================= */
+        ========================== */
 
         .file-path {
             margin-bottom: 10px;
@@ -722,7 +688,7 @@
 
         /* =========================
            TESTS
-        ========================= */
+        ========================== */
 
         .test-overview {
             display: flex;
@@ -794,8 +760,54 @@
         }
 
         /* =========================
+           AI GENERATED TESTS
+        ========================== */
+
+        .generated-tests {
+            margin-top: 8px;
+
+            border: 1px solid rgba(188,140,255,.22);
+            border-radius: 8px;
+
+            overflow: hidden;
+        }
+
+        .generated-tests summary {
+            padding: 10px 11px;
+
+            color: var(--purple);
+            background: #0A0E13;
+
+            font-size: 10px;
+            font-weight: 700;
+        }
+
+        .generated-tests pre {
+            margin: 0;
+            padding: 14px;
+
+            max-height: 500px;
+            overflow: auto;
+
+            background: #070A0E;
+            color: #D6C7F0;
+
+            font-family:
+                "Cascadia Code",
+                "SFMono-Regular",
+                Consolas,
+                monospace;
+
+            font-size: 10px;
+            line-height: 1.6;
+
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        /* =========================
            AI
-        ========================= */
+        ========================== */
 
         .ai-label {
             margin-bottom: 8px;
@@ -831,7 +843,7 @@
 
         /* =========================
            EVENTS
-        ========================= */
+        ========================== */
 
         .events {
             display: flex;
@@ -874,7 +886,7 @@
 
         /* =========================
            EMPTY
-        ========================= */
+        ========================== */
 
         .empty {
             padding: 28px 15px;
@@ -887,7 +899,7 @@
 
         /* =========================
            RESPONSIVE
-        ========================= */
+        ========================== */
 
         @media (max-width: 850px) {
             .sidebar {
@@ -910,10 +922,6 @@
 
             .input-row {
                 flex-direction: column;
-            }
-
-            .start-btn {
-                width: 100%;
             }
 
             .event-row {
@@ -1050,6 +1058,7 @@
                 <div class="input-row">
 
                     <div class="monitor-status">
+
                         <div class="monitor-status-title">
                             LIVE INFRASTRUCTURE MONITORING
                         </div>
@@ -1058,6 +1067,7 @@
                             FixOps is monitoring protected containers and will
                             automatically diagnose and repair detected errors.
                         </div>
+
                     </div>
 
                 </div>
@@ -1199,6 +1209,22 @@
                     </div>
 
 
+                    <!-- AI GENERATED TEST FILE -->
+
+                    <details
+                        class="generated-tests"
+                        open
+                    >
+
+                        <summary>
+                            AI Generated Tests
+                        </summary>
+
+                        <pre id="generatedTests">No tests generated.</pre>
+
+                    </details>
+
+
                     <details class="output-box">
 
                         <summary>
@@ -1336,6 +1362,9 @@
     const resultTypeBadge = document.getElementById("resultTypeBadge");
     const reproductionBadge = document.getElementById("reproductionBadge");
 
+    const generatedTests =
+        document.getElementById("generatedTests");
+
     const stdout = document.getElementById("stdout");
     const stderr = document.getElementById("stderr");
 
@@ -1360,10 +1389,16 @@
 
         if (sidebar.classList.contains("collapsed")) {
             collapseBtn.textContent = "›";
-            collapseBtn.setAttribute("aria-label", "Expand sidebar");
+            collapseBtn.setAttribute(
+                "aria-label",
+                "Expand sidebar"
+            );
         } else {
             collapseBtn.textContent = "‹";
-            collapseBtn.setAttribute("aria-label", "Collapse sidebar");
+            collapseBtn.setAttribute(
+                "aria-label",
+                "Collapse sidebar"
+            );
         }
     });
 
@@ -1372,7 +1407,10 @@
     ========================== */
 
     function setConnection(state, text) {
-        connection.classList.remove("connected", "error");
+        connection.classList.remove(
+            "connected",
+            "error"
+        );
 
         if (state) {
             connection.classList.add(state);
@@ -1408,7 +1446,10 @@
             return null;
         }
 
-        const raw = String(name).toLowerCase().trim();
+        const raw =
+            String(name)
+                .toLowerCase()
+                .trim();
 
         if (STEP_ALIASES[raw]) {
             return STEP_ALIASES[raw];
@@ -1422,7 +1463,10 @@
             return "graph_builder";
         }
 
-        if (raw.includes("error") && raw.includes("analy")) {
+        if (
+            raw.includes("error") &&
+            raw.includes("analy")
+        ) {
             return "error_analyzer";
         }
 
@@ -1456,14 +1500,17 @@
     }
 
     function getStep(name) {
-        const normalized = normalizeStepName(name);
+        const normalized =
+            normalizeStepName(name);
 
         if (!normalized) {
             return null;
         }
 
         return document.querySelector(
-            '.workflow-step[data-step="' + normalized + '"]'
+            '.workflow-step[data-step="' +
+            normalized +
+            '"]'
         );
     }
 
@@ -1471,13 +1518,21 @@
         const step = getStep(name);
 
         if (!step) {
-            console.debug("[FixOps] Unknown workflow step:", name);
+            console.debug(
+                "[FixOps] Unknown workflow step:",
+                name
+            );
             return;
         }
 
-        step.classList.remove("active", "done", "failed");
+        step.classList.remove(
+            "active",
+            "done",
+            "failed"
+        );
 
-        const status = step.querySelector(".step-status");
+        const status =
+            step.querySelector(".step-status");
 
         if (state === "active") {
             step.classList.add("active");
@@ -1485,12 +1540,14 @@
             if (status) {
                 status.textContent = "Running";
             }
+
         } else if (state === "done") {
             step.classList.add("done");
 
             if (status) {
                 status.textContent = "Completed";
             }
+
         } else if (state === "failed") {
             step.classList.add("failed");
 
@@ -1501,15 +1558,24 @@
     }
 
     function resetWorkflow() {
-        document.querySelectorAll(".workflow-step").forEach(step => {
-            step.classList.remove("active", "done", "failed");
+        document
+            .querySelectorAll(".workflow-step")
+            .forEach(step => {
 
-            const status = step.querySelector(".step-status");
+                step.classList.remove(
+                    "active",
+                    "done",
+                    "failed"
+                );
 
-            if (status) {
-                status.textContent = "Waiting";
-            }
-        });
+                const status =
+                    step.querySelector(".step-status");
+
+                if (status) {
+                    status.textContent =
+                        "Waiting";
+                }
+            });
     }
 
     /* =========================
@@ -1520,25 +1586,42 @@
         eventsContainer.innerHTML = "";
     }
 
-    function addEvent(eventName, data = {}) {
-        const empty = eventsContainer.querySelector(".empty");
+    function addEvent(
+        eventName,
+        data = {}
+    ) {
+        const empty =
+            eventsContainer.querySelector(
+                ".empty"
+            );
 
         if (empty) {
             empty.remove();
         }
 
-        const row = document.createElement("div");
+        const row =
+            document.createElement("div");
+
         row.className = "event-row";
 
-        const time = document.createElement("div");
-        time.className = "event-time";
-        time.textContent = new Date().toLocaleTimeString();
+        const time =
+            document.createElement("div");
 
-        const name = document.createElement("div");
+        time.className = "event-time";
+
+        time.textContent =
+            new Date().toLocaleTimeString();
+
+        const name =
+            document.createElement("div");
+
         name.className = "event-name";
+
         name.textContent = eventName;
 
-        const detail = document.createElement("div");
+        const detail =
+            document.createElement("div");
+
         detail.className = "event-detail";
 
         const safeData = { ...data };
@@ -1546,22 +1629,36 @@
         delete safeData.job_id;
         delete safeData.event;
 
-        const keys = Object.keys(safeData);
+        const keys =
+            Object.keys(safeData);
 
         if (keys.length) {
-            detail.textContent = keys.map(key => {
-                let value = safeData[key];
 
-                if (typeof value === "object" && value !== null) {
-                    try {
-                        value = JSON.stringify(value);
-                    } catch {
-                        value = String(value);
+            detail.textContent =
+                keys.map(key => {
+
+                    let value =
+                        safeData[key];
+
+                    if (
+                        typeof value === "object" &&
+                        value !== null
+                    ) {
+                        try {
+                            value =
+                                JSON.stringify(
+                                    value
+                                );
+                        } catch {
+                            value =
+                                String(value);
+                        }
                     }
-                }
 
-                return `${key}: ${value}`;
-            }).join("\n");
+                    return `${key}: ${value}`;
+
+                }).join("\n");
+
         } else {
             detail.textContent = "";
         }
@@ -1571,7 +1668,9 @@
         row.appendChild(detail);
 
         eventsContainer.appendChild(row);
-        eventsContainer.scrollTop = eventsContainer.scrollHeight;
+
+        eventsContainer.scrollTop =
+            eventsContainer.scrollHeight;
     }
 
     /* =========================
@@ -1586,43 +1685,112 @@
     }
 
     function renderDiff(text) {
+
         if (!text) {
-            diff.textContent = "No changes were applied.";
+            diff.textContent =
+                "No changes were applied.";
+
             return;
         }
 
-        const lines = String(text).split("\n");
+        const lines =
+            String(text).split("\n");
 
-        diff.innerHTML = lines.map(line => {
-            const escaped = escapeHtml(line);
+        diff.innerHTML =
+            lines.map(line => {
 
-            if (
-                line.startsWith("+++") ||
-                line.startsWith("---") ||
-                line.startsWith("@@") ||
-                line.startsWith("diff --git")
-            ) {
-                return `<span class="header">${escaped}</span>`;
-            }
+                const escaped =
+                    escapeHtml(line);
 
-            if (line.startsWith("+")) {
-                return `<span class="added">${escaped}</span>`;
-            }
+                if (
+                    line.startsWith("+++") ||
+                    line.startsWith("---") ||
+                    line.startsWith("@@") ||
+                    line.startsWith("diff --git")
+                ) {
+                    return (
+                        `<span class="header">${escaped}</span>`
+                    );
+                }
 
-            if (line.startsWith("-")) {
-                return `<span class="removed">${escaped}</span>`;
-            }
+                if (line.startsWith("+")) {
+                    return (
+                        `<span class="added">${escaped}</span>`
+                    );
+                }
 
-            return escaped;
-        }).join("\n");
+                if (line.startsWith("-")) {
+                    return (
+                        `<span class="removed">${escaped}</span>`
+                    );
+                }
+
+                return escaped;
+
+            }).join("\n");
+    }
+
+    /* =========================
+       AI TEST EXTRACTION
+    ========================== */
+
+    function renderGeneratedTests(
+        llmResponse
+    ) {
+        if (!llmResponse) {
+            generatedTests.textContent =
+                "No tests generated.";
+
+            return;
+        }
+
+        const matches =
+            String(llmResponse).match(
+                /```test\s*([\s\S]*?)```/gi
+            );
+
+        if (!matches || !matches.length) {
+            generatedTests.textContent =
+                "No tests generated.";
+
+            return;
+        }
+
+        const tests =
+            matches.map(block => {
+
+                return block
+                    .replace(
+                        /^```test\s*/i,
+                        ""
+                    )
+                    .replace(
+                        /```\s*$/i,
+                        ""
+                    )
+                    .trim();
+
+            }).join("\n\n");
+
+        generatedTests.textContent =
+            tests || "No tests generated.";
     }
 
     /* =========================
        TEST BADGES
     ========================== */
 
-    function setBadge(element, text, type = "neutral") {
-        element.classList.remove("pass", "fail", "neutral");
+    function setBadge(
+        element,
+        text,
+        type = "neutral"
+    ) {
+        element.classList.remove(
+            "pass",
+            "fail",
+            "neutral"
+        );
+
         element.classList.add(type);
         element.textContent = text;
     }
@@ -1632,6 +1800,7 @@
     ========================== */
 
     function renderResult(data) {
+
         if (!data) {
             return;
         }
@@ -1642,14 +1811,26 @@
             data.tests_passed === true ||
             data.status === "success";
 
-        resultCard.classList.remove("success", "failed");
-        resultCard.classList.add(success ? "success" : "failed");
+        resultCard.classList.remove(
+            "success",
+            "failed"
+        );
+
+        resultCard.classList.add(
+            success
+                ? "success"
+                : "failed"
+        );
 
         resultStatus.textContent =
-            success ? "REPAIR SUCCESS" : "REPAIR FAILED";
+            success
+                ? "REPAIR SUCCESS"
+                : "REPAIR FAILED";
 
         resultJob.textContent =
-            data.job_id || currentJobId || "—";
+            data.job_id ||
+            currentJobId ||
+            "—";
 
         resultAttempts.textContent =
             data.attempts ??
@@ -1657,7 +1838,8 @@
             "—";
 
         resultFile.textContent =
-            data.fixed_file || "—";
+            data.fixed_file ||
+            "—";
 
         filePath.textContent =
             data.fixed_file
@@ -1666,7 +1848,8 @@
 
         renderDiff(data.fix_diff);
 
-        const testsPassed = data.tests_passed;
+        const testsPassed =
+            data.tests_passed;
 
         setBadge(
             testsBadge,
@@ -1682,11 +1865,14 @@
                     : "neutral"
         );
 
-        const returnCode = data.test_return_code;
+        const returnCode =
+            data.test_return_code;
 
         setBadge(
             returnCodeBadge,
-            `RETURN CODE: ${returnCode ?? "—"}`,
+            `RETURN CODE: ${
+                returnCode ?? "—"
+            }`,
             returnCode === 0
                 ? "pass"
                 : returnCode != null
@@ -1694,11 +1880,14 @@
                     : "neutral"
         );
 
-        const resultType = data.test_result_type;
+        const resultType =
+            data.test_result_type;
 
         setBadge(
             resultTypeBadge,
-            `RESULT: ${resultType || "—"}`,
+            `RESULT: ${
+                resultType || "—"
+            }`,
             resultType === "SUCCESS"
                 ? "pass"
                 : resultType
@@ -1706,7 +1895,8 @@
                     : "neutral"
         );
 
-        const reproduction = data.reproduction_passed;
+        const reproduction =
+            data.reproduction_passed;
 
         setBadge(
             reproductionBadge,
@@ -1722,11 +1912,21 @@
                     : "neutral"
         );
 
-        stdout.textContent = data.test_stdout || "No stdout.";
-        stderr.textContent = data.test_stderr || "No stderr.";
+        stdout.textContent =
+            data.test_stdout ||
+            "No stdout.";
+
+        stderr.textContent =
+            data.test_stderr ||
+            "No stderr.";
+
+        renderGeneratedTests(
+            data.llm_response
+        );
 
         if (data.llm_prompt) {
-            llmPrompt.textContent = data.llm_prompt;
+            llmPrompt.textContent =
+                data.llm_prompt;
         }
     }
 
@@ -1734,7 +1934,11 @@
        NODE EVENTS
     ========================== */
 
-    function handleWorkflowEvent(eventName, data) {
+    function handleWorkflowEvent(
+        eventName,
+        data
+    ) {
+
         const nodeName =
             data.node ||
             data.node_name ||
@@ -1743,34 +1947,61 @@
             data.name;
 
         if (eventName === "node_started") {
-            setStep(nodeName, "active");
+
+            setStep(
+                nodeName,
+                "active"
+            );
 
             return;
         }
 
         if (eventName === "node_completed") {
-            setStep(nodeName, "done");
 
-            // Показать изменения сразу после apply_fix
+            setStep(
+                nodeName,
+                "done"
+            );
+
+            /* =========================
+               APPLY FIX
+            ========================== */
+
             if (nodeName === "apply_fix") {
+
                 if (data.fixed_file) {
-                    resultFile.textContent = data.fixed_file;
-                    filePath.textContent = data.fixed_file;
+
+                    resultFile.textContent =
+                        data.fixed_file;
+
+                    filePath.textContent =
+                        data.fixed_file;
                 }
 
                 if (data.fix_diff) {
-                    renderDiff(data.fix_diff);
+                    renderDiff(
+                        data.fix_diff
+                    );
                 }
 
-                if (data.fix_applied === false) {
-                    filePath.textContent = "No changes were applied.";
+                if (
+                    data.fix_applied === false
+                ) {
+                    filePath.textContent =
+                        "No changes were applied.";
+
                     renderDiff("");
                 }
             }
 
-            // Показать результаты тестов сразу после run_tests
+            /* =========================
+               RUN TESTS
+            ========================== */
+
             if (nodeName === "run_tests") {
-                const testsPassed = data.tests_passed;
+
+                const testsPassed =
+                    data.tests_passed;
 
                 setBadge(
                     testsBadge,
@@ -1788,20 +2019,40 @@
 
                 setBadge(
                     returnCodeBadge,
-                    `RETURN CODE: ${data.return_code ?? "—"}`,
-                    data.return_code === 0
+                    `RETURN CODE: ${
+                        data.return_code ??
+                        data.test_return_code ??
+                        "—"
+                    }`,
+                    (
+                        data.return_code === 0 ||
+                        data.test_return_code === 0
+                    )
                         ? "pass"
-                        : data.return_code != null
+                        : (
+                            data.return_code != null ||
+                            data.test_return_code != null
+                        )
                             ? "fail"
                             : "neutral"
                 );
 
                 setBadge(
                     resultTypeBadge,
-                    `RESULT: ${data.result_type || "—"}`,
-                    data.result_type === "SUCCESS"
+                    `RESULT: ${
+                        data.result_type ||
+                        data.test_result_type ||
+                        "—"
+                    }`,
+                    (
+                        data.result_type === "SUCCESS" ||
+                        data.test_result_type === "SUCCESS"
+                    )
                         ? "pass"
-                        : data.result_type
+                        : (
+                            data.result_type ||
+                            data.test_result_type
+                        )
                             ? "fail"
                             : "neutral"
                 );
@@ -1835,14 +2086,20 @@
         }
 
         if (eventName === "node_failed") {
-            setStep(nodeName, "failed");
+
+            setStep(
+                nodeName,
+                "failed"
+            );
         }
     }
+
     /* =========================
        JOB UI
     ========================== */
 
     function resetJobView(jobId) {
+
         currentJobId = jobId;
 
         resetWorkflow();
@@ -1850,24 +2107,50 @@
 
         resultCard.style.display = "none";
 
-        filePath.textContent = "No changes yet";
-        diff.textContent = "Waiting for FixOps...";
+        filePath.textContent =
+            "No changes yet";
 
-        testsBadge.textContent = "TESTS: —";
-        returnCodeBadge.textContent = "RETURN CODE: —";
-        resultTypeBadge.textContent = "RESULT: —";
-        reproductionBadge.textContent = "REPRODUCTION: —";
+        diff.textContent =
+            "Waiting for FixOps...";
 
-        testsBadge.className = "test-badge neutral";
-        returnCodeBadge.className = "test-badge neutral";
-        resultTypeBadge.className = "test-badge neutral";
-        reproductionBadge.className = "test-badge neutral";
+        testsBadge.textContent =
+            "TESTS: —";
 
-        stdout.textContent = "No output.";
-        stderr.textContent = "No output.";
-        llmPrompt.textContent = "No AI analysis yet.";
+        returnCodeBadge.textContent =
+            "RETURN CODE: —";
 
-        apiError.style.display = "none";
+        resultTypeBadge.textContent =
+            "RESULT: —";
+
+        reproductionBadge.textContent =
+            "REPRODUCTION: —";
+
+        testsBadge.className =
+            "test-badge neutral";
+
+        returnCodeBadge.className =
+            "test-badge neutral";
+
+        resultTypeBadge.className =
+            "test-badge neutral";
+
+        reproductionBadge.className =
+            "test-badge neutral";
+
+        generatedTests.textContent =
+            "No tests generated.";
+
+        stdout.textContent =
+            "No output.";
+
+        stderr.textContent =
+            "No output.";
+
+        llmPrompt.textContent =
+            "No AI analysis yet.";
+
+        apiError.style.display =
+            "none";
     }
 
     /* =========================
@@ -1875,40 +2158,69 @@
     ========================== */
 
     function connectJobWebSocket(jobId) {
+
         if (!jobId) {
             return;
         }
 
         if (
             jobSocket &&
-            jobSocket.readyState === WebSocket.OPEN
+            jobSocket.readyState ===
+                WebSocket.OPEN
         ) {
             jobSocket.close();
         }
 
         const wsUrl =
-            API_URL.replace(/^http/, "ws") +
+            API_URL.replace(
+                /^http/,
+                "ws"
+            ) +
             `/ws/jobs/${jobId}`;
 
-        console.log("[FixOps] Connecting to job:", wsUrl);
+        console.log(
+            "[FixOps] Connecting to job:",
+            wsUrl
+        );
 
-        jobSocket = new WebSocket(wsUrl);
+        jobSocket =
+            new WebSocket(wsUrl);
 
         jobSocket.onopen = () => {
-            setConnection("connected", "FixOps running");
-            addEvent("job_connected", {
-                job_id: jobId
-            });
+
+            setConnection(
+                "connected",
+                "FixOps running"
+            );
+
+            addEvent(
+                "job_connected",
+                {
+                    job_id: jobId
+                }
+            );
         };
 
         jobSocket.onmessage = event => {
+
             try {
-                const message = JSON.parse(event.data);
 
-                console.log("[FixOps] Job event:", message);
+                const message =
+                    JSON.parse(
+                        event.data
+                    );
 
-                handleSocketMessage(message);
+                console.log(
+                    "[FixOps] Job event:",
+                    message
+                );
+
+                handleSocketMessage(
+                    message
+                );
+
             } catch (error) {
+
                 console.error(
                     "[FixOps] Invalid job WS message:",
                     error
@@ -1917,19 +2229,31 @@
         };
 
         jobSocket.onerror = error => {
+
             console.error(
                 "[FixOps] Job WebSocket error:",
                 error
             );
 
-            setConnection("error", "Connection error");
+            setConnection(
+                "error",
+                "Connection error"
+            );
         };
 
         jobSocket.onclose = () => {
-            console.log("[FixOps] Job WebSocket closed");
 
-            if (currentJobId === jobId) {
-                setConnection("", "Monitoring");
+            console.log(
+                "[FixOps] Job WebSocket closed"
+            );
+
+            if (
+                currentJobId === jobId
+            ) {
+                setConnection(
+                    "",
+                    "Monitoring"
+                );
             }
         };
     }
@@ -1939,60 +2263,98 @@
     ========================== */
 
     function connectMonitorWebSocket() {
+
         if (
             monitorSocket &&
             (
-                monitorSocket.readyState === WebSocket.OPEN ||
-                monitorSocket.readyState === WebSocket.CONNECTING
+                monitorSocket.readyState ===
+                    WebSocket.OPEN ||
+                monitorSocket.readyState ===
+                    WebSocket.CONNECTING
             )
         ) {
             return;
         }
 
         const wsUrl =
-            API_URL.replace(/^http/, "ws") + "/ws";
+            API_URL.replace(
+                /^http/,
+                "ws"
+            ) +
+            "/ws";
 
-        console.log("[FixOps] Connecting monitor:", wsUrl);
+        console.log(
+            "[FixOps] Connecting monitor:",
+            wsUrl
+        );
 
-        monitorSocket = new WebSocket(wsUrl);
+        monitorSocket =
+            new WebSocket(wsUrl);
 
         monitorSocket.onopen = () => {
-            setConnection("connected", "Monitoring");
-            apiError.style.display = "none";
 
-            addEvent("monitor_connected");
+            setConnection(
+                "connected",
+                "Monitoring"
+            );
+
+            apiError.style.display =
+                "none";
+
+            addEvent(
+                "monitor_connected"
+            );
         };
 
         monitorSocket.onmessage = event => {
+
             try {
-                const message = JSON.parse(event.data);
+
+                const message =
+                    JSON.parse(
+                        event.data
+                    );
 
                 console.log(
                     "[FixOps] Monitor event:",
                     message
                 );
 
-                if (message.event === "job_started") {
-                    const jobId = message.job_id;
+                if (
+                    message.event ===
+                    "job_started"
+                ) {
+
+                    const jobId =
+                        message.job_id;
 
                     if (!jobId) {
                         return;
                     }
 
-                    resetJobView(jobId);
+                    resetJobView(
+                        jobId
+                    );
 
-                    addEvent("job_started", {
-                        job_id: jobId
-                    });
+                    addEvent(
+                        "job_started",
+                        {
+                            job_id: jobId
+                        }
+                    );
 
                     setConnection(
                         "connected",
                         "Error detected"
                     );
 
-                    connectJobWebSocket(jobId);
+                    connectJobWebSocket(
+                        jobId
+                    );
                 }
+
             } catch (error) {
+
                 console.error(
                     "[FixOps] Invalid monitor WS message:",
                     error
@@ -2001,6 +2363,7 @@
         };
 
         monitorSocket.onerror = error => {
+
             console.error(
                 "[FixOps] Monitor WebSocket error:",
                 error
@@ -2013,22 +2376,31 @@
 
             apiError.textContent =
                 "Cannot connect to FixOps API.";
-            apiError.style.display = "block";
+
+            apiError.style.display =
+                "block";
         };
 
         monitorSocket.onclose = () => {
+
             console.log(
                 "[FixOps] Monitor WebSocket closed"
             );
 
-            setConnection("", "Reconnecting...");
-
-            clearTimeout(reconnectTimer);
-
-            reconnectTimer = setTimeout(
-                connectMonitorWebSocket,
-                3000
+            setConnection(
+                "",
+                "Reconnecting..."
             );
+
+            clearTimeout(
+                reconnectTimer
+            );
+
+            reconnectTimer =
+                setTimeout(
+                    connectMonitorWebSocket,
+                    3000
+                );
         };
     }
 
@@ -2036,35 +2408,62 @@
        SOCKET MESSAGE
     ========================== */
 
-    function handleSocketMessage(message) {
-        const eventName = message.event;
+    function handleSocketMessage(
+        message
+    ) {
+
+        const eventName =
+            message.event;
 
         if (!eventName) {
             return;
         }
 
-        const data = { ...message };
+        const data = {
+            ...message
+        };
 
         delete data.event;
 
-        addEvent(eventName, data);
+        addEvent(
+            eventName,
+            data
+        );
 
-        handleWorkflowEvent(eventName, data);
+        handleWorkflowEvent(
+            eventName,
+            data
+        );
 
-        if (eventName === "workflow_started") {
+        if (
+            eventName ===
+            "workflow_started"
+        ) {
+
             resetWorkflow();
+
             return;
         }
 
-        if (eventName === "workflow_finished") {
+        if (
+            eventName ===
+            "workflow_finished"
+        ) {
+
             renderResult(data);
 
-            if (data.status === "success") {
+            if (
+                data.status ===
+                "success"
+            ) {
+
                 setConnection(
                     "connected",
                     "Repair completed"
                 );
+
             } else {
+
                 setConnection(
                     "error",
                     "Repair failed"
@@ -2078,7 +2477,12 @@
             eventName === "llm_prompt" ||
             eventName === "context_built"
         ) {
-            if (data.llm_prompt || data.prompt) {
+
+            if (
+                data.llm_prompt ||
+                data.prompt
+            ) {
+
                 llmPrompt.textContent =
                     data.llm_prompt ||
                     data.prompt;
@@ -2092,6 +2496,7 @@
             eventName === "ai_started" ||
             eventName === "fix_request_started"
         ) {
+
             setStep(
                 "handle_fix_request",
                 "active"
@@ -2105,6 +2510,7 @@
             eventName === "ai_completed" ||
             eventName === "fix_request_completed"
         ) {
+
             setStep(
                 "handle_fix_request",
                 "done"
@@ -2118,7 +2524,11 @@
        INITIAL STATE
     ========================== */
 
-    setConnection("", "Connecting...");
+    setConnection(
+        "",
+        "Connecting..."
+    );
+
     connectMonitorWebSocket();
 
 })();
@@ -2126,4 +2536,3 @@
 
 </body>
 </html>
-```

@@ -169,22 +169,14 @@ class AnalyzeJob:
             fix_applied=final_state.get("fix_applied"),
             fix_diff=final_state.get("fix_diff"),
 
+            llm_prompt=final_state.get("llm_prompt", ""),
+            llm_response=final_state.get("llm_response", ""),
+
             # Тесты
             tests_passed=final_state.get("tests_passed"),
-            reproduction_passed=final_state.get(
-                "reproduction_passed"
-            ),
-            test_return_code=final_state.get(
-                "test_return_code"
-            ),
-            test_result_type=final_state.get(
-                "test_result_type"
-            ),
+            test_return_code=final_state.get("test_return_code"),
             test_stdout=final_state.get("test_stdout", ""),
-            test_stderr=final_state.get("test_stderr", ""),
-
-            # Что отправляли LLM
-            llm_prompt=final_state.get("llm_prompt"),
+            test_stderr=final_state.get("test_stderr", "")
         )
 
         # Отображение результата обратно в исходный формат артефакта для экономии времени
