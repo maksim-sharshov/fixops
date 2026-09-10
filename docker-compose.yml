@@ -12,6 +12,9 @@ services:
     depends_on:
       - redis
 
+    env_file:
+        - ./backend/.env
+
     ports:
       - "8000:8000"
 
