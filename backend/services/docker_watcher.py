@@ -2,10 +2,12 @@ import os
 import json
 import docker
 import asyncio
+from uuid import uuid4
 from collections import deque
 
 from config import settings
 from core.logging import get_logger
+from api.ws import notify_job_started
 from core.decorators import log_execution
 
 from services.analyze_error import AnalyzeJob
@@ -151,12 +153,15 @@ class DockerLogWatcher:
         )
 
         logs_dir = f"{project_root}/.fixops"
+        job_id = uuid4().hex
 
+        await notify_job_started(job_id)
         job = AnalyzeJob(
             project_root=project_root,
             error_log=error_log,
             logs_dir=logs_dir,
             extra_ignore_dirs=settings.analysis.EXTRA_IGNORE_DIRS,
+            job_id=job_id,
         )
 
         await job.run()

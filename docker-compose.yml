@@ -12,13 +12,32 @@ services:
     depends_on:
       - redis
 
+    ports:
+      - "8000:8000"
+
     volumes:
       # FixOps наблюдает Docker
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
-      # Git-репозитории проектов.
-      # FixOps читает и изменяет файлы прямо здесь.
+      # Проекты
       - /home/virtu/projects:/projects
+
+
+  frontend:
+    image: nginx:alpine
+
+    container_name: fixops-frontend
+
+    restart: unless-stopped
+
+    depends_on:
+      - fixops
+
+    ports:
+      - "3000:80"
+
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
 
 
   redis:

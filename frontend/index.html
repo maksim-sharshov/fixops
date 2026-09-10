@@ -1049,21 +1049,16 @@
 
                 <div class="input-row">
 
-                    <input
-                        id="projectPath"
-                        class="project-input"
-                        type="text"
-                        value="orderflow-project\backend"
-                        placeholder="Project path"
-                    >
+                    <div class="monitor-status">
+                        <div class="monitor-status-title">
+                            LIVE INFRASTRUCTURE MONITORING
+                        </div>
 
-                    <button
-                        id="startBtn"
-                        class="start-btn"
-                        type="button"
-                    >
-                        START FIXOPS
-                    </button>
+                        <div class="monitor-status-text">
+                            FixOps is monitoring protected containers and will
+                            automatically diagnose and repair detected errors.
+                        </div>
+                    </div>
 
                 </div>
 
@@ -1306,16 +1301,13 @@
 
 <script>
 (() => {
-
     "use strict";
-
 
     /* =========================
        CONFIG
     ========================== */
 
-    const API_URL = "http://127.0.0.1:8000";
-
+    const API_URL = "http://138.124.240.14:8000/";
 
     /* =========================
        DOM
@@ -1323,9 +1315,6 @@
 
     const sidebar = document.getElementById("sidebar");
     const collapseBtn = document.getElementById("collapseBtn");
-
-    const startBtn = document.getElementById("startBtn");
-    const projectPathInput = document.getElementById("projectPath");
 
     const connection = document.getElementById("connection");
     const connectionText = document.getElementById("connectionText");
@@ -1351,53 +1340,39 @@
     const stderr = document.getElementById("stderr");
 
     const llmPrompt = document.getElementById("llmPrompt");
-
     const eventsContainer = document.getElementById("events");
-
 
     /* =========================
        STATE
     ========================== */
 
-    let socket = null;
+    let monitorSocket = null;
+    let jobSocket = null;
     let currentJobId = null;
-
+    let reconnectTimer = null;
 
     /* =========================
        SIDEBAR
     ========================== */
 
     collapseBtn.addEventListener("click", () => {
-
         sidebar.classList.toggle("collapsed");
 
         if (sidebar.classList.contains("collapsed")) {
             collapseBtn.textContent = "›";
-            collapseBtn.setAttribute(
-                "aria-label",
-                "Expand sidebar"
-            );
+            collapseBtn.setAttribute("aria-label", "Expand sidebar");
         } else {
             collapseBtn.textContent = "‹";
-            collapseBtn.setAttribute(
-                "aria-label",
-                "Collapse sidebar"
-            );
+            collapseBtn.setAttribute("aria-label", "Collapse sidebar");
         }
-
     });
-
 
     /* =========================
        CONNECTION UI
     ========================== */
 
     function setConnection(state, text) {
-
-        connection.classList.remove(
-            "connected",
-            "error"
-        );
+        connection.classList.remove("connected", "error");
 
         if (state) {
             connection.classList.add(state);
@@ -1406,101 +1381,52 @@
         connectionText.textContent = text;
     }
 
-
     /* =========================
        WORKFLOW
     ========================== */
 
     const STEP_ALIASES = {
-
-        indexer:
-            "indexer",
-
-        graph_builder:
-            "graph_builder",
-
-        error_analyzer:
-            "error_analyzer",
-
-        context_builder:
-            "context_builder",
-
-        handle_fix_request:
-            "handle_fix_request",
-
-        fix_request:
-            "handle_fix_request",
-
-        deepseek:
-            "handle_fix_request",
-
-        groq:
-            "handle_fix_request",
-
-        llm:
-            "handle_fix_request",
-
-        ai:
-            "handle_fix_request",
-
-        apply_fix:
-            "apply_fix",
-
-        fix_executor:
-            "apply_fix",
-
-        executor:
-            "apply_fix",
-
-        run_tests:
-            "run_tests",
-
-        tests:
-            "run_tests"
+        indexer: "indexer",
+        graph_builder: "graph_builder",
+        error_analyzer: "error_analyzer",
+        context_builder: "context_builder",
+        handle_fix_request: "handle_fix_request",
+        fix_request: "handle_fix_request",
+        deepseek: "handle_fix_request",
+        groq: "handle_fix_request",
+        llm: "handle_fix_request",
+        ai: "handle_fix_request",
+        apply_fix: "apply_fix",
+        fix_executor: "apply_fix",
+        executor: "apply_fix",
+        run_tests: "run_tests",
+        tests: "run_tests"
     };
 
-
     function normalizeStepName(name) {
-
         if (!name) {
             return null;
         }
 
-        const raw = String(name)
-            .toLowerCase()
-            .trim();
+        const raw = String(name).toLowerCase().trim();
 
         if (STEP_ALIASES[raw]) {
             return STEP_ALIASES[raw];
         }
 
-        /*
-         * Backend may send function names,
-         * operation names or node names.
-         */
-
-        if (
-            raw.includes("index")
-        ) {
+        if (raw.includes("index")) {
             return "indexer";
         }
 
-        if (
-            raw.includes("graph")
-        ) {
+        if (raw.includes("graph")) {
             return "graph_builder";
         }
 
-        if (
-            raw.includes("error") &&
-            raw.includes("analy")
-        ) {
+        if (raw.includes("error") && raw.includes("analy")) {
             return "error_analyzer";
         }
 
-        if (
-            raw.includes("context")
-        ) {
+        if (raw.includes("context")) {
             return "context_builder";
         }
 
@@ -1522,18 +1448,14 @@
             return "apply_fix";
         }
 
-        if (
-            raw.includes("test")
-        ) {
+        if (raw.includes("test")) {
             return "run_tests";
         }
 
         return raw;
     }
 
-
     function getStep(name) {
-
         const normalized = normalizeStepName(name);
 
         if (!normalized) {
@@ -1541,52 +1463,35 @@
         }
 
         return document.querySelector(
-            '.workflow-step[data-step="' +
-            normalized +
-            '"]'
+            '.workflow-step[data-step="' + normalized + '"]'
         );
     }
 
-
     function setStep(name, state) {
-
         const step = getStep(name);
 
         if (!step) {
-            console.debug(
-                "[FixOps] Unknown workflow step:",
-                name
-            );
+            console.debug("[FixOps] Unknown workflow step:", name);
             return;
         }
 
-        step.classList.remove(
-            "active",
-            "done",
-            "failed"
-        );
+        step.classList.remove("active", "done", "failed");
 
-        const status =
-            step.querySelector(".step-status");
+        const status = step.querySelector(".step-status");
 
         if (state === "active") {
-
             step.classList.add("active");
 
             if (status) {
                 status.textContent = "Running";
             }
-
         } else if (state === "done") {
-
             step.classList.add("done");
 
             if (status) {
                 status.textContent = "Completed";
             }
-
         } else if (state === "failed") {
-
             step.classList.add("failed");
 
             if (status) {
@@ -1595,245 +1500,156 @@
         }
     }
 
-
     function resetWorkflow() {
+        document.querySelectorAll(".workflow-step").forEach(step => {
+            step.classList.remove("active", "done", "failed");
 
-        document
-            .querySelectorAll(".workflow-step")
-            .forEach(step => {
+            const status = step.querySelector(".step-status");
 
-                step.classList.remove(
-                    "active",
-                    "done",
-                    "failed"
-                );
-
-                const status =
-                    step.querySelector(".step-status");
-
-                if (status) {
-                    status.textContent = "Waiting";
-                }
-
-            });
+            if (status) {
+                status.textContent = "Waiting";
+            }
+        });
     }
-
 
     /* =========================
        EVENTS
     ========================== */
 
     function clearEvents() {
-
         eventsContainer.innerHTML = "";
     }
 
-
     function addEvent(eventName, data = {}) {
-
-        const empty =
-            eventsContainer.querySelector(".empty");
+        const empty = eventsContainer.querySelector(".empty");
 
         if (empty) {
             empty.remove();
         }
 
-        const row =
-            document.createElement("div");
-
+        const row = document.createElement("div");
         row.className = "event-row";
 
-        const time =
-            document.createElement("div");
-
+        const time = document.createElement("div");
         time.className = "event-time";
+        time.textContent = new Date().toLocaleTimeString();
 
-        time.textContent =
-            new Date().toLocaleTimeString();
-
-
-        const name =
-            document.createElement("div");
-
+        const name = document.createElement("div");
         name.className = "event-name";
+        name.textContent = eventName;
 
-        name.textContent =
-            eventName;
-
-
-        const detail =
-            document.createElement("div");
-
+        const detail = document.createElement("div");
         detail.className = "event-detail";
 
-        const safeData = {
-            ...data
-        };
+        const safeData = { ...data };
 
         delete safeData.job_id;
         delete safeData.event;
 
-        const keys =
-            Object.keys(safeData);
+        const keys = Object.keys(safeData);
 
         if (keys.length) {
+            detail.textContent = keys.map(key => {
+                let value = safeData[key];
 
-            detail.textContent =
-                keys.map(key => {
-
-                    let value =
-                        safeData[key];
-
-                    if (
-                        typeof value === "object" &&
-                        value !== null
-                    ) {
-                        try {
-                            value =
-                                JSON.stringify(value);
-                        } catch {
-                            value =
-                                String(value);
-                        }
+                if (typeof value === "object" && value !== null) {
+                    try {
+                        value = JSON.stringify(value);
+                    } catch {
+                        value = String(value);
                     }
+                }
 
-                    return `${key}: ${value}`;
-
-                }).join("\n");
-
+                return `${key}: ${value}`;
+            }).join("\n");
         } else {
-
-            detail.textContent =
-                "";
+            detail.textContent = "";
         }
-
 
         row.appendChild(time);
         row.appendChild(name);
         row.appendChild(detail);
 
         eventsContainer.appendChild(row);
-
-        eventsContainer.scrollTop =
-            eventsContainer.scrollHeight;
+        eventsContainer.scrollTop = eventsContainer.scrollHeight;
     }
-
 
     /* =========================
        DIFF RENDER
     ========================== */
 
     function escapeHtml(value) {
-
         return String(value)
             .replace(/&/g, "&amp;")
             .replace(/</g, "&lt;")
             .replace(/>/g, "&gt;");
     }
 
-
     function renderDiff(text) {
-
         if (!text) {
-
-            diff.textContent =
-                "No changes were applied.";
-
+            diff.textContent = "No changes were applied.";
             return;
         }
 
-        const lines =
-            String(text).split("\n");
+        const lines = String(text).split("\n");
 
-        diff.innerHTML =
-            lines.map(line => {
+        diff.innerHTML = lines.map(line => {
+            const escaped = escapeHtml(line);
 
-                const escaped =
-                    escapeHtml(line);
+            if (
+                line.startsWith("+++") ||
+                line.startsWith("---") ||
+                line.startsWith("@@") ||
+                line.startsWith("diff --git")
+            ) {
+                return `<span class="header">${escaped}</span>`;
+            }
 
-                if (
-                    line.startsWith("+++") ||
-                    line.startsWith("---") ||
-                    line.startsWith("@@") ||
-                    line.startsWith("diff --git")
-                ) {
-                    return `<span class="header">${escaped}</span>`;
-                }
+            if (line.startsWith("+")) {
+                return `<span class="added">${escaped}</span>`;
+            }
 
-                if (line.startsWith("+")) {
-                    return `<span class="added">${escaped}</span>`;
-                }
+            if (line.startsWith("-")) {
+                return `<span class="removed">${escaped}</span>`;
+            }
 
-                if (line.startsWith("-")) {
-                    return `<span class="removed">${escaped}</span>`;
-                }
-
-                return escaped;
-
-            }).join("\n");
+            return escaped;
+        }).join("\n");
     }
-
 
     /* =========================
        TEST BADGES
     ========================== */
 
-    function setBadge(
-        element,
-        text,
-        type = "neutral"
-    ) {
-
-        element.classList.remove(
-            "pass",
-            "fail",
-            "neutral"
-        );
-
+    function setBadge(element, text, type = "neutral") {
+        element.classList.remove("pass", "fail", "neutral");
         element.classList.add(type);
-
         element.textContent = text;
     }
-
 
     /* =========================
        RESULT
     ========================== */
 
     function renderResult(data) {
-
         if (!data) {
             return;
         }
 
-        resultCard.style.display =
-            "block";
+        resultCard.style.display = "block";
 
         const success =
             data.tests_passed === true ||
             data.status === "success";
 
-        resultCard.classList.remove(
-            "success",
-            "failed"
-        );
-
-        resultCard.classList.add(
-            success
-                ? "success"
-                : "failed"
-        );
+        resultCard.classList.remove("success", "failed");
+        resultCard.classList.add(success ? "success" : "failed");
 
         resultStatus.textContent =
-            success
-                ? "REPAIR SUCCESS"
-                : "REPAIR FAILED";
-
+            success ? "REPAIR SUCCESS" : "REPAIR FAILED";
 
         resultJob.textContent =
-            data.job_id ||
-            currentJobId ||
-            "—";
+            data.job_id || currentJobId || "—";
 
         resultAttempts.textContent =
             data.attempts ??
@@ -1841,23 +1657,16 @@
             "—";
 
         resultFile.textContent =
-            data.fixed_file ||
-            "—";
-
+            data.fixed_file || "—";
 
         filePath.textContent =
             data.fixed_file
                 ? data.fixed_file
                 : "No file changed";
 
+        renderDiff(data.fix_diff);
 
-        renderDiff(
-            data.fix_diff
-        );
-
-
-        const testsPassed =
-            data.tests_passed;
+        const testsPassed = data.tests_passed;
 
         setBadge(
             testsBadge,
@@ -1873,15 +1682,11 @@
                     : "neutral"
         );
 
-
-        const returnCode =
-            data.test_return_code;
+        const returnCode = data.test_return_code;
 
         setBadge(
             returnCodeBadge,
-            `RETURN CODE: ${
-                returnCode ?? "—"
-            }`,
+            `RETURN CODE: ${returnCode ?? "—"}`,
             returnCode === 0
                 ? "pass"
                 : returnCode != null
@@ -1889,15 +1694,11 @@
                     : "neutral"
         );
 
-
-        const resultType =
-            data.test_result_type;
+        const resultType = data.test_result_type;
 
         setBadge(
             resultTypeBadge,
-            `RESULT: ${
-                resultType || "—"
-            }`,
+            `RESULT: ${resultType || "—"}`,
             resultType === "SUCCESS"
                 ? "pass"
                 : resultType
@@ -1905,9 +1706,7 @@
                     : "neutral"
         );
 
-
-        const reproduction =
-            data.reproduction_passed;
+        const reproduction = data.reproduction_passed;
 
         setBadge(
             reproductionBadge,
@@ -1923,30 +1722,19 @@
                     : "neutral"
         );
 
-
-        stdout.textContent =
-            data.test_stdout ||
-            "No stdout.";
-
-        stderr.textContent =
-            data.test_stderr ||
-            "No stderr.";
-
+        stdout.textContent = data.test_stdout || "No stdout.";
+        stderr.textContent = data.test_stderr || "No stderr.";
 
         if (data.llm_prompt) {
-
-            llmPrompt.textContent =
-                data.llm_prompt;
+            llmPrompt.textContent = data.llm_prompt;
         }
     }
-
 
     /* =========================
        NODE EVENTS
     ========================== */
 
     function handleWorkflowEvent(eventName, data) {
-
         const nodeName =
             data.node ||
             data.node_name ||
@@ -1969,212 +1757,247 @@
         }
     }
 
-
     /* =========================
-       WEBSOCKET
+       JOB UI
     ========================== */
 
-    function connectWebSocket(jobId) {
+    function resetJobView(jobId) {
+        currentJobId = jobId;
 
-        return new Promise((resolve, reject) => {
+        resetWorkflow();
+        clearEvents();
 
-            const wsUrl =
-                `ws://127.0.0.1:8000/ws/jobs/${jobId}`;
+        resultCard.style.display = "none";
 
-            console.log(
-                "[FixOps] Connecting:",
-                wsUrl
-            );
+        filePath.textContent = "No changes yet";
+        diff.textContent = "Waiting for FixOps...";
 
-            socket =
-                new WebSocket(wsUrl);
+        testsBadge.textContent = "TESTS: —";
+        returnCodeBadge.textContent = "RETURN CODE: —";
+        resultTypeBadge.textContent = "RESULT: —";
+        reproductionBadge.textContent = "REPRODUCTION: —";
 
+        testsBadge.className = "test-badge neutral";
+        returnCodeBadge.className = "test-badge neutral";
+        resultTypeBadge.className = "test-badge neutral";
+        reproductionBadge.className = "test-badge neutral";
 
-            socket.onopen = () => {
+        stdout.textContent = "No output.";
+        stderr.textContent = "No output.";
+        llmPrompt.textContent = "No AI analysis yet.";
 
-                console.log(
-                    "[FixOps] WebSocket connected"
-                );
-
-                setConnection(
-                    "connected",
-                    "Live"
-                );
-
-                addEvent(
-                    "websocket_connected"
-                );
-
-                resolve();
-            };
-
-
-            socket.onmessage = event => {
-
-                try {
-
-                    const message =
-                        JSON.parse(event.data);
-
-                    console.log(
-                        "[FixOps] Event:",
-                        message
-                    );
-
-                    handleSocketMessage(
-                        message
-                    );
-
-                } catch (error) {
-
-                    console.error(
-                        "[FixOps] Invalid WS message:",
-                        error
-                    );
-                }
-            };
-
-
-            socket.onerror = error => {
-
-                console.error(
-                    "[FixOps] WebSocket error:",
-                    error
-                );
-
-                setConnection(
-                    "error",
-                    "Connection error"
-                );
-
-                reject(error);
-            };
-
-
-            socket.onclose = () => {
-
-                console.log(
-                    "[FixOps] WebSocket closed"
-                );
-
-                if (
-                    connection.classList.contains(
-                        "connected"
-                    )
-                ) {
-                    setConnection(
-                        "",
-                        "Disconnected"
-                    );
-                }
-            };
-
-        });
+        apiError.style.display = "none";
     }
 
+    /* =========================
+       JOB WEBSOCKET
+    ========================== */
+
+    function connectJobWebSocket(jobId) {
+        if (!jobId) {
+            return;
+        }
+
+        if (
+            jobSocket &&
+            jobSocket.readyState === WebSocket.OPEN
+        ) {
+            jobSocket.close();
+        }
+
+        const wsUrl =
+            API_URL.replace(/^http/, "ws") +
+            `/ws/jobs/${jobId}`;
+
+        console.log("[FixOps] Connecting to job:", wsUrl);
+
+        jobSocket = new WebSocket(wsUrl);
+
+        jobSocket.onopen = () => {
+            setConnection("connected", "FixOps running");
+            addEvent("job_connected", {
+                job_id: jobId
+            });
+        };
+
+        jobSocket.onmessage = event => {
+            try {
+                const message = JSON.parse(event.data);
+
+                console.log("[FixOps] Job event:", message);
+
+                handleSocketMessage(message);
+            } catch (error) {
+                console.error(
+                    "[FixOps] Invalid job WS message:",
+                    error
+                );
+            }
+        };
+
+        jobSocket.onerror = error => {
+            console.error(
+                "[FixOps] Job WebSocket error:",
+                error
+            );
+
+            setConnection("error", "Connection error");
+        };
+
+        jobSocket.onclose = () => {
+            console.log("[FixOps] Job WebSocket closed");
+
+            if (currentJobId === jobId) {
+                setConnection("", "Monitoring");
+            }
+        };
+    }
+
+    /* =========================
+       GLOBAL MONITOR WEBSOCKET
+    ========================== */
+
+    function connectMonitorWebSocket() {
+        if (
+            monitorSocket &&
+            (
+                monitorSocket.readyState === WebSocket.OPEN ||
+                monitorSocket.readyState === WebSocket.CONNECTING
+            )
+        ) {
+            return;
+        }
+
+        const wsUrl =
+            API_URL.replace(/^http/, "ws") + "/ws";
+
+        console.log("[FixOps] Connecting monitor:", wsUrl);
+
+        monitorSocket = new WebSocket(wsUrl);
+
+        monitorSocket.onopen = () => {
+            setConnection("connected", "Monitoring");
+            apiError.style.display = "none";
+
+            addEvent("monitor_connected");
+        };
+
+        monitorSocket.onmessage = event => {
+            try {
+                const message = JSON.parse(event.data);
+
+                console.log(
+                    "[FixOps] Monitor event:",
+                    message
+                );
+
+                if (message.event === "job_started") {
+                    const jobId = message.job_id;
+
+                    if (!jobId) {
+                        return;
+                    }
+
+                    resetJobView(jobId);
+
+                    addEvent("job_started", {
+                        job_id: jobId
+                    });
+
+                    setConnection(
+                        "connected",
+                        "Error detected"
+                    );
+
+                    connectJobWebSocket(jobId);
+                }
+            } catch (error) {
+                console.error(
+                    "[FixOps] Invalid monitor WS message:",
+                    error
+                );
+            }
+        };
+
+        monitorSocket.onerror = error => {
+            console.error(
+                "[FixOps] Monitor WebSocket error:",
+                error
+            );
+
+            setConnection(
+                "error",
+                "Connection error"
+            );
+
+            apiError.textContent =
+                "Cannot connect to FixOps API.";
+            apiError.style.display = "block";
+        };
+
+        monitorSocket.onclose = () => {
+            console.log(
+                "[FixOps] Monitor WebSocket closed"
+            );
+
+            setConnection("", "Reconnecting...");
+
+            clearTimeout(reconnectTimer);
+
+            reconnectTimer = setTimeout(
+                connectMonitorWebSocket,
+                3000
+            );
+        };
+    }
+
+    /* =========================
+       SOCKET MESSAGE
+    ========================== */
 
     function handleSocketMessage(message) {
-
-        const eventName =
-            message.event;
+        const eventName = message.event;
 
         if (!eventName) {
             return;
         }
 
-        const data = {
-            ...message
-        };
+        const data = { ...message };
 
         delete data.event;
 
-        addEvent(
-            eventName,
-            data
-        );
+        addEvent(eventName, data);
 
+        handleWorkflowEvent(eventName, data);
 
-        handleWorkflowEvent(
-            eventName,
-            data
-        );
-
-
-        if (
-            eventName === "workflow_started"
-        ) {
-
+        if (eventName === "workflow_started") {
             resetWorkflow();
-
             return;
         }
 
-
-        if (
-            eventName === "workflow_finished"
-        ) {
-
-            /*
-             * IMPORTANT:
-             * Backend sends fields directly:
-             *
-             * {
-             *   event: "workflow_finished",
-             *   status: "success",
-             *   fix_applied: true,
-             *   fix_diff: "...",
-             *   fixed_file: "...",
-             *   tests_passed: true,
-             *   ...
-             * }
-             *
-             * NOT data.result.*
-             */
-
+        if (eventName === "workflow_finished") {
             renderResult(data);
 
-            startBtn.disabled =
-                false;
-
-            startBtn.textContent =
-                "START FIXOPS";
-
-            if (
-                data.status === "success"
-            ) {
-
+            if (data.status === "success") {
                 setConnection(
                     "connected",
-                    "Completed"
+                    "Repair completed"
                 );
-
             } else {
-
                 setConnection(
                     "error",
-                    "Failed"
+                    "Repair failed"
                 );
             }
 
             return;
         }
 
-
-        /*
-         * Some backends may send the prompt
-         * as a separate event.
-         */
-
         if (
             eventName === "llm_prompt" ||
             eventName === "context_built"
         ) {
-
-            if (
-                data.llm_prompt ||
-                data.prompt
-            ) {
-
+            if (data.llm_prompt || data.prompt) {
                 llmPrompt.textContent =
                     data.llm_prompt ||
                     data.prompt;
@@ -2183,17 +2006,11 @@
             return;
         }
 
-
-        /*
-         * Support direct AI events too.
-         */
-
         if (
             eventName === "llm_started" ||
             eventName === "ai_started" ||
             eventName === "fix_request_started"
         ) {
-
             setStep(
                 "handle_fix_request",
                 "active"
@@ -2202,13 +2019,11 @@
             return;
         }
 
-
         if (
             eventName === "llm_completed" ||
             eventName === "ai_completed" ||
             eventName === "fix_request_completed"
         ) {
-
             setStep(
                 "handle_fix_request",
                 "done"
@@ -2216,281 +2031,14 @@
 
             return;
         }
-
     }
-
-
-    /* =========================
-       START JOB
-    ========================== */
-
-    async function startJob() {
-
-        const projectPath =
-            projectPathInput.value.trim();
-
-        if (!projectPath) {
-
-            apiError.textContent =
-                "Project path is required.";
-
-            apiError.style.display =
-                "block";
-
-            return;
-        }
-
-
-        apiError.style.display =
-            "none";
-
-        resultCard.style.display =
-            "none";
-
-        resetWorkflow();
-        clearEvents();
-
-        diff.textContent =
-            "Waiting for FixOps...";
-
-        filePath.textContent =
-            "No changes yet";
-
-        llmPrompt.textContent =
-            "No AI analysis yet.";
-
-        stdout.textContent =
-            "No output.";
-
-        stderr.textContent =
-            "No output.";
-
-        setBadge(
-            testsBadge,
-            "TESTS: —"
-        );
-
-        setBadge(
-            returnCodeBadge,
-            "RETURN CODE: —"
-        );
-
-        setBadge(
-            resultTypeBadge,
-            "RESULT: —"
-        );
-
-        setBadge(
-            reproductionBadge,
-            "REPRODUCTION: —"
-        );
-
-
-        startBtn.disabled =
-            true;
-
-        startBtn.textContent =
-            "STARTING...";
-
-        setConnection(
-            "",
-            "Starting"
-        );
-
-
-        try {
-
-            console.log(
-                "[FixOps] Starting job:",
-                projectPath
-            );
-
-
-            /*
-             * Backend currently expects project_path.
-             */
-
-            const response =
-                await fetch(
-                    `${API_URL}/jobs`,
-                    {
-                        method: "POST",
-
-                        headers: {
-                            "Content-Type":
-                                "application/json"
-                        },
-
-                        body: JSON.stringify({
-                            project_path:
-                                projectPath
-                        })
-                    }
-                );
-
-
-            const responseText =
-                await response.text();
-
-
-            let data = null;
-
-            try {
-
-                data =
-                    responseText
-                        ? JSON.parse(responseText)
-                        : null;
-
-            } catch {
-
-                data = {
-                    raw: responseText
-                };
-            }
-
-
-            if (!response.ok) {
-
-                throw new Error(
-                    `HTTP ${response.status}\n` +
-                    JSON.stringify(
-                        data,
-                        null,
-                        2
-                    )
-                );
-            }
-
-
-            console.log(
-                "[FixOps] Job created:",
-                data
-            );
-
-
-            /*
-             * Support different possible
-             * response shapes.
-             */
-
-            currentJobId =
-                data.job_id ||
-                data.id ||
-                data.jobId;
-
-
-            if (!currentJobId) {
-
-                throw new Error(
-                    "Backend did not return job_id."
-                );
-            }
-
-
-            addEvent(
-                "job_created",
-                {
-                    job_id:
-                        currentJobId
-                }
-            );
-
-
-            /*
-             * Connect immediately.
-             * EventManager stores history,
-             * so previous events are also
-             * received when connecting.
-             */
-
-            await connectWebSocket(
-                currentJobId
-            );
-
-
-            startBtn.textContent =
-                "RUNNING...";
-
-
-        } catch (error) {
-
-            console.error(
-                "[FixOps] Start error:",
-                error
-            );
-
-
-            startBtn.disabled =
-                false;
-
-            startBtn.textContent =
-                "START FIXOPS";
-
-
-            setConnection(
-                "error",
-                "Error"
-            );
-
-
-            apiError.textContent =
-                error.message ||
-                String(error);
-
-            apiError.style.display =
-                "block";
-
-
-            addEvent(
-                "client_error",
-                {
-                    message:
-                        error.message ||
-                        String(error)
-                }
-            );
-        }
-    }
-
-
-    /* =========================
-       START BUTTON
-    ========================== */
-
-    startBtn.addEventListener(
-        "click",
-        startJob
-    );
-
-
-    /* =========================
-       ENTER
-    ========================== */
-
-    projectPathInput.addEventListener(
-        "keydown",
-        event => {
-
-            if (
-                event.key === "Enter" &&
-                !startBtn.disabled
-            ) {
-                startJob();
-            }
-
-        }
-    );
-
 
     /* =========================
        INITIAL STATE
     ========================== */
 
-    setConnection(
-        "",
-        "Disconnected"
-    );
+    setConnection("", "Connecting...");
+    connectMonitorWebSocket();
 
 })();
 </script>
