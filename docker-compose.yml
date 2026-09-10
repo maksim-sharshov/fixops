@@ -12,9 +12,6 @@ services:
     depends_on:
       - redis
 
-    env_file:
-        - ./backend/.env
-
     ports:
       - "8000:8000"
 
@@ -52,8 +49,6 @@ services:
 
     command:
       - redis-server
-      - --protected-mode
-      - "no"
       - --requirepass
       - ${REDIS_PASSWORD}
 
