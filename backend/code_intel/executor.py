@@ -271,11 +271,39 @@ class FixExecutor:
         return last_file_path, any_changed
 
 
+    def _find_python_root(self) -> Path:
+        candidates = [
+            self.project_root,
+            self.project_root / "backend",
+            self.project_root / "src",
+        ]
+
+        for path in candidates:
+            if not path.is_dir():
+                continue
+
+            if (
+                (path / "app").is_dir()
+                or (path / "src").is_dir()
+            ):
+                return path
+
+            pyproject = path / "pyproject.toml"
+            setup_py = path / "setup.py"
+
+            if pyproject.exists() or setup_py.exists():
+                return path
+
+        return self.project_root
+
+
     def run_tests(self, command: list[str]) -> TestResult:
         env = os.environ.copy()
 
+        python_root = self._find_python_root()
+
         env["PYTHONPATH"] = (
-            f"{self.project_root}{os.pathsep}{self.project_root.parent}"
+            f"{python_root}{os.pathsep}{self.project_root}"
         )
 
         env["LOG_DIR"] = str(self.project_root / "logs")
