@@ -1,5 +1,6 @@
 import os
 import json
+import time
 import docker
 import asyncio
 from uuid import uuid4
@@ -18,6 +19,7 @@ class DockerLogWatcher:
 
     def __init__(self):
         self.client = docker.from_env()
+        self.recent_errors = {}
 
     @log_execution(event="docker_watcher.run")
     async def run(self):
@@ -86,6 +88,9 @@ class DockerLogWatcher:
                 continue
 
             if self.is_error(data):
+                if self.is_duplicate_error(data):
+                    continue
+
                 await self.handle_error(
                     container=container,
                     data=data,
@@ -113,6 +118,34 @@ class DockerLogWatcher:
             record.get("level", {}).get("name") == "ERROR"
             or record.get("extra", {}).get("severity") == "ERROR"
         )
+
+    def is_duplicate_error(self, data: dict) -> bool:
+        """Проверяет, является ли ERROR повтором уже обработанной ошибки."""
+        record = data.get("record", {})
+        extra = record.get("extra", {})
+        error = extra.get("error", {})
+
+        # HTTPException — это уже ошибка-обёртка
+        # над настоящей ошибкой.
+        if error.get("type") == "HTTPException":
+            return True
+
+        error_key = (
+            extra.get("file"),
+            extra.get("line"),
+            error.get("type"),
+            error.get("message"),
+        )
+
+        now = time.monotonic()
+        last_seen = self.recent_errors.get(error_key)
+
+        self.recent_errors[error_key] = now
+
+        if last_seen is not None and now - last_seen < 2:
+            return True
+
+        return False
 
     @log_execution(event="docker_watcher.handle_error")
     async def handle_error(
@@ -156,6 +189,7 @@ class DockerLogWatcher:
         job_id = uuid4().hex
 
         await notify_job_started(job_id)
+
         job = AnalyzeJob(
             project_root=project_root,
             error_log=error_log,
@@ -165,13 +199,3 @@ class DockerLogWatcher:
         )
 
         await job.run()
-
-
-async def main():
-    """Точка запуска DockerLogWatcher."""
-    watcher = DockerLogWatcher()
-    await watcher.run()
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
