@@ -162,6 +162,27 @@ class AnalyzeJob:
             self.job_id,
             "workflow_finished",
             status="success" if final_state.get("tests_passed") else "failed",
+            attempts=final_state.get("fix_attempt", 0),
+
+            # Что исправили
+            fixed_file=final_state.get("fixed_file"),
+            fix_applied=final_state.get("fix_applied"),
+            fix_diff=final_state.get("fix_diff"),
+
+            # Тесты
+            tests_passed=final_state.get("tests_passed"),
+            reproduction_passed=final_state.get(
+                "reproduction_passed"
+            ),
+            test_return_code=final_state.get(
+                "test_return_code"
+            ),
+            test_result_type=final_state.get(
+                "test_result_type"
+            ),
+
+            # Что отправляли LLM
+            llm_prompt=final_state.get("llm_prompt"),
         )
 
         # Отображение результата обратно в исходный формат артефакта для экономии времени

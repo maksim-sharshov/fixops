@@ -1,8 +1,9 @@
-import inspect
 import time
+import inspect
+import functools
 import traceback
-from functools import wraps
 
+from core.events import events
 from core.logging import get_logger
 
 
@@ -16,11 +17,6 @@ SENSITIVE_FIELDS = {
     "secret",
 }
 
-import time
-import functools
-
-from core.events import events
-from core.logging import app_logger
 
 NODE_LABELS_RU = {
     "indexer": "Сканирование проекта",
@@ -395,6 +391,9 @@ def _summarize(
             "fix_error": result.get(
                 "fix_error"
             ),
+            "fix_diff": result.get(
+                "fix_diff"
+            ),
         }
 
     if operation == "run_tests":
@@ -405,6 +404,12 @@ def _summarize(
             ),
             "reproduction_passed": result.get(
                 "reproduction_passed"
+            ),
+            "return_code": result.get(
+                "test_return_code"
+            ),
+            "result_type": result.get(
+                "test_result_type"
             ),
             "stdout_tail": (
                 result.get("test_stdout") or ""
