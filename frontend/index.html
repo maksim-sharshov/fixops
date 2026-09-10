@@ -1744,11 +1744,93 @@
 
         if (eventName === "node_started") {
             setStep(nodeName, "active");
+
             return;
         }
 
         if (eventName === "node_completed") {
             setStep(nodeName, "done");
+
+            // Показать изменения сразу после apply_fix
+            if (nodeName === "apply_fix") {
+                if (data.fixed_file) {
+                    resultFile.textContent = data.fixed_file;
+                    filePath.textContent = data.fixed_file;
+                }
+
+                if (data.fix_diff) {
+                    renderDiff(data.fix_diff);
+                }
+
+                if (data.fix_applied === false) {
+                    filePath.textContent = "No changes were applied.";
+                    renderDiff("");
+                }
+            }
+
+            // Показать результаты тестов сразу после run_tests
+            if (nodeName === "run_tests") {
+                const testsPassed = data.tests_passed;
+
+                setBadge(
+                    testsBadge,
+                    testsPassed === true
+                        ? "TESTS: PASSED"
+                        : testsPassed === false
+                            ? "TESTS: FAILED"
+                            : "TESTS: —",
+                    testsPassed === true
+                        ? "pass"
+                        : testsPassed === false
+                            ? "fail"
+                            : "neutral"
+                );
+
+                setBadge(
+                    returnCodeBadge,
+                    `RETURN CODE: ${data.return_code ?? "—"}`,
+                    data.return_code === 0
+                        ? "pass"
+                        : data.return_code != null
+                            ? "fail"
+                            : "neutral"
+                );
+
+                setBadge(
+                    resultTypeBadge,
+                    `RESULT: ${data.result_type || "—"}`,
+                    data.result_type === "SUCCESS"
+                        ? "pass"
+                        : data.result_type
+                            ? "fail"
+                            : "neutral"
+                );
+
+                setBadge(
+                    reproductionBadge,
+                    data.reproduction_passed === true
+                        ? "REPRODUCTION: PASSED"
+                        : data.reproduction_passed === false
+                            ? "REPRODUCTION: FAILED"
+                            : "REPRODUCTION: —",
+                    data.reproduction_passed === true
+                        ? "pass"
+                        : data.reproduction_passed === false
+                            ? "fail"
+                            : "neutral"
+                );
+
+                stdout.textContent =
+                    data.stdout_tail ||
+                    data.test_stdout ||
+                    "No stdout.";
+
+                stderr.textContent =
+                    data.stderr_tail ||
+                    data.test_stderr ||
+                    "No stderr.";
+            }
+
             return;
         }
 
@@ -1756,7 +1838,6 @@
             setStep(nodeName, "failed");
         }
     }
-
     /* =========================
        JOB UI
     ========================== */
