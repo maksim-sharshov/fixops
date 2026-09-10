@@ -2,7 +2,7 @@ services:
 
   fixops:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
 
     container_name: fixops
