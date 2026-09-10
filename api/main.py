@@ -28,4 +28,4 @@ async def root():
     return {
         "status": "ok",
         "service": "FixOps",
-    }
+    }в
