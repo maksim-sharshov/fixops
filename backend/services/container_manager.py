@@ -1,16 +1,61 @@
 import subprocess
 
+HOST_PROJECTS_ROOT = "/home/virtu/projects"
+FIXOPS_PROJECTS_ROOT = "/projects"
+
+
+def get_project_paths(container_id: str):
+    import docker
+
+    client = docker.from_env()
+    container = client.containers.get(container_id)
+
+    container_project_path = container.labels.get(
+        "fixops.project_path"
+    )
+
+    if not container_project_path:
+        raise RuntimeError(
+            "Container has no fixops.project_path label"
+        )
+
+    if not container_project_path.startswith(
+        FIXOPS_PROJECTS_ROOT + "/"
+    ):
+        raise RuntimeError(
+            f"Invalid FixOps project path: "
+            f"{container_project_path}"
+        )
+
+    relative_path = container_project_path[
+        len(FIXOPS_PROJECTS_ROOT) + 1:
+    ]
+
+    host_project_path = (
+        f"{HOST_PROJECTS_ROOT}/{relative_path}"
+    )
+
+    return (
+        container_project_path,
+        host_project_path,
+    )
+
 
 def run_apply(container_id: str):
-    project_path = get_project_path(container_id)
+    (
+        container_project_path,
+        host_project_path,
+    ) = get_project_paths(container_id)
 
     result = subprocess.run(
         [
             "docker",
             "compose",
+            "-f",
+            f"{host_project_path}/docker-compose.yml",
             "down",
         ],
-        cwd=project_path,
+        cwd=host_project_path,
         capture_output=True,
         text=True,
     )
@@ -24,11 +69,13 @@ def run_apply(container_id: str):
         [
             "docker",
             "compose",
+            "-f",
+            f"{host_project_path}/docker-compose.yml",
             "up",
             "--build",
             "-d",
         ],
-        cwd=project_path,
+        cwd=host_project_path,
         capture_output=True,
         text=True,
     )
@@ -42,7 +89,10 @@ def run_apply(container_id: str):
 
 
 def run_rollback(container_id: str):
-    project_path = get_project_path(container_id)
+    (
+        container_project_path,
+        host_project_path,
+    ) = get_project_paths(container_id)
 
     result = subprocess.run(
         [
@@ -50,7 +100,7 @@ def run_rollback(container_id: str):
             "restore",
             ".",
         ],
-        cwd=project_path,
+        cwd=host_project_path,
         capture_output=True,
         text=True,
     )
@@ -61,22 +111,3 @@ def run_rollback(container_id: str):
         )
 
     return result.stdout
-
-
-def get_project_path(container_id: str):
-    import docker
-
-    client = docker.from_env()
-
-    container = client.containers.get(container_id)
-
-    project_path = container.labels.get(
-        "fixops.project_path"
-    )
-
-    if not project_path:
-        raise RuntimeError(
-            "Container has no fixops.project_path label"
-        )
-
-    return project_path
