@@ -110,15 +110,10 @@ def run_apply(container_id: str):
     git.sync()
 
     # 4. Забираем изменения FixOps
-    changed_files = git.status().splitlines()
+    files = git.changed_files()
 
-    if not changed_files:
+    if not files:
         return result.stdout
-
-    files = [
-        line[3:]
-        for line in changed_files
-    ]
 
     # 5. Commit
     git.add(files)

@@ -172,3 +172,27 @@ class GitService:
             "--no-edit",
             commit_hash,
         ).stdout.strip()
+
+    def changed_files(self) -> list[str]:
+        result = self._run(
+            "git",
+            "status",
+            "--short",
+        )
+
+        files = []
+
+        for line in result.stdout.splitlines():
+            if not line.strip():
+                continue
+
+            # Первые два символа — статус Git:
+            # " M file.py"
+            # "M  file.py"
+            # "?? file.py"
+            path = line[3:]
+
+            if path:
+                files.append(path)
+
+        return files
