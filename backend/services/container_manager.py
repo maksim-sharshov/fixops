@@ -35,6 +35,19 @@ def get_project_paths(container_id: str):
         f"{HOST_PROJECTS_ROOT}/{relative_path}"
     )
 
+    subprocess.run(
+        [
+            "git",
+            "config",
+            "--global",
+            "--add",
+            "safe.directory",
+            host_project_path,
+        ],
+        cwd=host_project_path,
+        check=True,
+    )
+
     return (
         container_project_path,
         host_project_path,
@@ -97,6 +110,19 @@ def run_rollback(container_id: str):
         container_project_path,
         host_project_path,
     ) = get_project_paths(container_id)
+
+    subprocess.run(
+        [
+            "git",
+            "config",
+            "--global",
+            "--add",
+            "safe.directory",
+            host_project_path,
+        ],
+        capture_output=True,
+        text=True,
+    )
 
     result = subprocess.run(
         [
