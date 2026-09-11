@@ -206,7 +206,8 @@ class DockerLogWatcher:
         self,
         container,
         data: dict,
-        project_root: str
+        project_root: str,
+        history: deque,
     ):
         """Обрабатывает ERROR и запускает анализ."""
         log = get_logger(
