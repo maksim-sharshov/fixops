@@ -487,7 +487,7 @@ class ContextBuilder:
 
         lines.append("```test")
         lines.append(
-            "FILE: <путь_к_файлу_теста, например .tests_fixops/test_pricing.py>"
+            "FILE: <путь_к_файлу_теста, например tests/test_pricing.py>"
         )
         lines.append("import pytest")
         lines.append("...")
