@@ -38,6 +38,12 @@ class ErrorAnalyzer:
         line: int | None = None,
     ) -> str | None:
 
+        print("IDX:", self.idx)
+        print("MODULES:", len(self.idx.modules))
+
+        for m in self.idx.modules:
+            print("MODULE FILE:", repr(m.file))
+
         print("\n========== ERROR ANALYZER ==========")
         print("ERROR FILE:", repr(file))
         print("ERROR FUNCTION:", repr(function))
