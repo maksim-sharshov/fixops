@@ -2,8 +2,12 @@ import subprocess
 
 
 class GitService:
-
-    def __init__(self, repo_path: str):
+    def __init__(
+        self,
+        repo_path: str,
+        user_name: str = "FixOps",
+        user_email: str = "fixops@localhost",
+    ):
         self.repo_path = repo_path
 
         self._run(
@@ -13,6 +17,20 @@ class GitService:
             "--add",
             "safe.directory",
             self.repo_path,
+        )
+
+        self._run(
+            "git",
+            "config",
+            "user.name",
+            user_name,
+        )
+
+        self._run(
+            "git",
+            "config",
+            "user.email",
+            user_email,
         )
 
     def _run(self, *args: str) -> subprocess.CompletedProcess:
