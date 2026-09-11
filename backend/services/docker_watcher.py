@@ -87,9 +87,12 @@ class DockerLogWatcher:
 
             try:
                 raw_line = await asyncio.to_thread(
-                    next,
-                    stream,
+                    _next_log_line,
+                    log_stream,
                 )
+
+                if raw_line is None:
+                    break
 
             except StopIteration:
                 log.warning(
@@ -150,6 +153,13 @@ class DockerLogWatcher:
             record.get("level", {}).get("name") == "ERROR"
             or record.get("extra", {}).get("severity") == "ERROR"
         )
+
+
+    def _next_log_line(stream):
+        try:
+            return next(stream)
+        except StopIteration:
+            return None
 
 
     def is_duplicate_error(
