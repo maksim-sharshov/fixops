@@ -29,6 +29,9 @@ services:
       # чтобы Docker Compose видел реальные host-пути
       - /home/virtu/projects:/home/virtu/projects
 
+      # SSH для GitHub
+      - /home/virtu/.ssh:/root/.ssh:ro-
+
 
   frontend:
     image: nginx:alpine
