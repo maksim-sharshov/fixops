@@ -22,34 +22,116 @@ def _next_log_line(stream):
 
 
 class DockerLogWatcher:
-    """Отслеживает логи FixOps-контейнеров и реагирует на ERROR."""
 
     def __init__(self):
         self.client = docker.from_env()
+
         self.recent_errors = {}
+
+        self.watch_tasks: dict[str, asyncio.Task] = {}
 
 
     @log_execution(event="docker_watcher.run")
     async def run(self):
-        """Запускает отслеживание всех FixOps-контейнеров."""
-        log = get_logger(event="docker_watcher.run")
+        """Постоянно ищет новые FixOps-контейнеры."""
 
-        containers = self.client.containers.list(
-            filters={"label": "fixops.enabled=true"},
+        log = get_logger(
+            event="docker_watcher.run"
         )
 
-        log.info("Found {} FixOps containers", len(containers))
+        log.info("Docker watcher started")
 
-        tasks = [
-            self.watch_container(container)
-            for container in containers
-        ]
+        try:
+            while True:
 
-        if tasks:
-            await asyncio.gather(*tasks)
-        else:
-            await asyncio.Event().wait()
+                containers = await asyncio.to_thread(
+                    self.client.containers.list,
+                    filters={
+                        "label": "fixops.enabled=true"
+                    },
+                )
 
+                active_ids = {
+                    container.id
+                    for container in containers
+                }
+
+                for container in containers:
+
+                    if container.id in self.watch_tasks:
+                        continue
+
+                    log.info(
+                        "New FixOps container detected: {}",
+                        container.name,
+                    )
+
+                    task = asyncio.create_task(
+                        self.start_watching(container)
+                    )
+
+                    self.watch_tasks[
+                        container.id
+                    ] = task
+
+
+                # Удаляем завершённые задачи
+                finished_ids = [
+                    container_id
+                    for container_id, task
+                    in self.watch_tasks.items()
+                    if task.done()
+                ]
+
+                for container_id in finished_ids:
+                    self.watch_tasks.pop(
+                        container_id,
+                        None,
+                    )
+
+                await asyncio.sleep(2)
+
+        except asyncio.CancelledError:
+
+            log.info(
+                "Docker watcher shutting down"
+            )
+
+            for task in self.watch_tasks.values():
+                task.cancel()
+
+            await asyncio.gather(
+                *self.watch_tasks.values(),
+                return_exceptions=True,
+            )
+
+            raise
+
+
+    async def start_watching(self, container):
+
+        try:
+            await self.watch_container(container)
+
+        except asyncio.CancelledError:
+            raise
+
+        except Exception as exc:
+            log = get_logger(
+                event="docker_watcher.container",
+                container=container.name,
+            )
+
+            log.exception(
+                "Container watcher crashed: {}",
+                exc,
+            )
+
+        finally:
+            self.watch_tasks.pop(
+                container.id,
+                None,
+            )
 
     @log_execution(event="docker_watcher.container")
     async def watch_container(self, container):
