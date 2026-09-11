@@ -19,11 +19,15 @@ services:
       - "8000:8000"
 
     volumes:
-      # FixOps наблюдает Docker
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # FixOps управляет Docker
+      - /var/run/docker.sock:/var/run/docker.sock
 
-      # Проекты
+      # Проекты для FixOps
       - /home/virtu/projects:/projects
+
+      # Тот же путь внутри FixOps,
+      # чтобы Docker Compose видел реальные host-пути
+      - /home/virtu/projects:/home/virtu/projects
 
 
   frontend:

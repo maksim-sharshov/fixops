@@ -1,3 +1,4 @@
+import docker
 import subprocess
 
 HOST_PROJECTS_ROOT = "/home/virtu/projects"
@@ -5,7 +6,6 @@ FIXOPS_PROJECTS_ROOT = "/projects"
 
 
 def get_project_paths(container_id: str):
-    import docker
 
     client = docker.from_env()
     container = client.containers.get(container_id)
@@ -53,6 +53,8 @@ def run_apply(container_id: str):
             "compose",
             "-f",
             f"{host_project_path}/docker-compose.yml",
+            "--project-directory",
+            host_project_path,
             "down",
         ],
         cwd=host_project_path,
@@ -71,6 +73,8 @@ def run_apply(container_id: str):
             "compose",
             "-f",
             f"{host_project_path}/docker-compose.yml",
+            "--project-directory",
+            host_project_path,
             "up",
             "--build",
             "-d",
