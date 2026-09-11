@@ -31,60 +31,17 @@ class ErrorAnalyzer:
         self.idx = idx
         self.g = g
 
-    def find_node_by_location(
-        self,
-        file: str,
-        function: str | None = None,
-        line: int | None = None,
-    ) -> str | None:
-
-        print("IDX:", self.idx)
-        print("MODULES:", len(self.idx.modules))
-
-        for m in self.idx.modules:
-            print("MODULE FILE:", repr(m.file))
-
-        print("\n========== ERROR ANALYZER ==========")
-        print("ERROR FILE:", repr(file))
-        print("ERROR FUNCTION:", repr(function))
-        print("ERROR LINE:", repr(line))
-
+    def find_node_by_location(self, file: str, function: str) -> str | None:
+        """Находит qualname функции по файлу и имени функции из лога."""
         error_filename = Path(file).name
-        print("ERROR FILENAME:", repr(error_filename))
 
         for m in self.idx.modules:
             indexed_filename = Path(m.file).name
 
-            print(
-                "MODULE:",
-                repr(m.file),
-                "=>",
-                repr(indexed_filename)
-            )
-
-            if indexed_filename != error_filename:
-                continue
-
-            print(">>> FILE MATCH!")
-
-            for fn in m.functions:
-                print(
-                    "    FUNCTION:",
-                    repr(fn.name),
-                    "QUALNAME:",
-                    repr(fn.qualname),
-                    "LINE:",
-                    getattr(fn, "line", None),
-                    "END:",
-                    getattr(fn, "end_line", None),
-                )
-
-                if function and fn.name == function:
-                    print(">>> FUNCTION MATCH!")
-                    return fn.qualname
-
-        print(">>> NOTHING MATCHED")
-        print("====================================\n")
+            if indexed_filename == error_filename:
+                for fn in m.functions:
+                    if fn.name == function:
+                        return fn.qualname
 
         return None
 
