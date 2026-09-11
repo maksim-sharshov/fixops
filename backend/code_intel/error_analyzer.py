@@ -34,36 +34,51 @@ class ErrorAnalyzer:
     def find_node_by_location(
         self,
         file: str,
-        line: int,
         function: str | None = None,
+        line: int | None = None,
     ) -> str | None:
-        """Находит qualname функции по файлу, строке и имени функции."""
 
-        error_path = Path(file).resolve()
+        print("\n========== ERROR ANALYZER ==========")
+        print("ERROR FILE:", repr(file))
+        print("ERROR FUNCTION:", repr(function))
+        print("ERROR LINE:", repr(line))
 
-        for module in self.idx.modules:
-            indexed_path = Path(module.file).resolve()
+        error_filename = Path(file).name
+        print("ERROR FILENAME:", repr(error_filename))
 
-            # Сначала сравниваем путь
-            if indexed_path != error_path:
+        for m in self.idx.modules:
+            indexed_filename = Path(m.file).name
+
+            print(
+                "MODULE:",
+                repr(m.file),
+                "=>",
+                repr(indexed_filename)
+            )
+
+            if indexed_filename != error_filename:
                 continue
 
-            for fn in module.functions:
+            print(">>> FILE MATCH!")
 
-                # Если функция известна — используем её
+            for fn in m.functions:
+                print(
+                    "    FUNCTION:",
+                    repr(fn.name),
+                    "QUALNAME:",
+                    repr(fn.qualname),
+                    "LINE:",
+                    getattr(fn, "line", None),
+                    "END:",
+                    getattr(fn, "end_line", None),
+                )
+
                 if function and fn.name == function:
+                    print(">>> FUNCTION MATCH!")
                     return fn.qualname
 
-                # Иначе определяем функцию по строке ошибки
-                start = getattr(fn, "line", None)
-                end = getattr(fn, "end_line", None)
-
-                if start is not None:
-                    if end is None:
-                        end = start
-
-                    if start <= line <= end:
-                        return fn.qualname
+        print(">>> NOTHING MATCHED")
+        print("====================================\n")
 
         return None
 
