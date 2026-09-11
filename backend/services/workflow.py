@@ -456,6 +456,8 @@ async def reset_project_node(state: FixOpsState):
             subprocess.run,
             [
                 "git",
+                "-c",
+                f"safe.directory={project_root}",
                 "reset",
                 "--hard",
             ],
