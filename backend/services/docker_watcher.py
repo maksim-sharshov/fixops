@@ -206,8 +206,7 @@ class DockerLogWatcher:
         self,
         container,
         data: dict,
-        project_root: str,
-        history: deque,
+        project_root: str
     ):
         """Обрабатывает ERROR и запускает анализ."""
         log = get_logger(
@@ -242,7 +241,10 @@ class DockerLogWatcher:
         logs_dir = f"{project_root}/.fixops"
         job_id = uuid4().hex
 
-        await notify_job_started(job_id)
+        await notify_job_started(
+            job_id=job_id,
+            container_id=container.id
+        )
 
         job = AnalyzeJob(
             project_root=project_root,

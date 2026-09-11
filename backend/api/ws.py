@@ -45,13 +45,14 @@ async def job_ws(
         )
 
 
-async def notify_job_started(job_id: str):
+async def notify_job_started(job_id: str, container_id: str):
     """Сообщает frontend о создании нового job."""
 
     message = {
-        "event": "job_started",
-        "job_id": job_id,
-    }
+            "event": "job_started",
+            "job_id": job_id,
+            "container_id": container_id,
+        }
 
     dead_connections = []
 
