@@ -95,10 +95,11 @@ class DockerLogWatcher:
             try:
                 raw_line = await asyncio.to_thread(
                     _next_log_line,
-                    log_stream,
+                    stream,
                 )
 
                 if raw_line is None:
+                    log.warning("Docker log stream ended")
                     break
 
             except StopIteration:
