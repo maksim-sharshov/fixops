@@ -31,16 +31,38 @@ class ErrorAnalyzer:
         self.idx = idx
         self.g = g
 
-    def find_node_by_location(self, file: str, function: str) -> str | None:
-        """Находит qualname функции по файлу и имени функции из лога."""
-        error_filename = Path(file).name
+    def find_node_by_location(
+        self,
+        file: str,
+        line: int,
+        function: str | None = None,
+    ) -> str | None:
+        """Находит qualname функции по файлу, строке и имени функции."""
 
-        for m in self.idx.modules:
-            indexed_filename = Path(m.file).name
+        error_path = Path(file).resolve()
 
-            if indexed_filename == error_filename:
-                for fn in m.functions:
-                    if fn.name == function:
+        for module in self.idx.modules:
+            indexed_path = Path(module.file).resolve()
+
+            # Сначала сравниваем путь
+            if indexed_path != error_path:
+                continue
+
+            for fn in module.functions:
+
+                # Если функция известна — используем её
+                if function and fn.name == function:
+                    return fn.qualname
+
+                # Иначе определяем функцию по строке ошибки
+                start = getattr(fn, "line", None)
+                end = getattr(fn, "end_line", None)
+
+                if start is not None:
+                    if end is None:
+                        end = start
+
+                    if start <= line <= end:
                         return fn.qualname
 
         return None
