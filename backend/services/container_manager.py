@@ -1,8 +1,8 @@
 import docker
 import subprocess
 
-HOST_PROJECTS_ROOT = "/home/virtu/projects"
-FIXOPS_PROJECTS_ROOT = "/projects"
+from config import settings
+from services.git_service import GitService
 
 
 def get_project_paths(container_id: str):
@@ -20,7 +20,7 @@ def get_project_paths(container_id: str):
         )
 
     if not container_project_path.startswith(
-        FIXOPS_PROJECTS_ROOT + "/"
+        settings.paths.FIXOPS_PROJECTS_ROOT + "/"
     ):
         raise RuntimeError(
             f"Invalid FixOps project path: "
@@ -28,11 +28,11 @@ def get_project_paths(container_id: str):
         )
 
     relative_path = container_project_path[
-        len(FIXOPS_PROJECTS_ROOT) + 1:
+        len(settings.paths.FIXOPS_PROJECTS_ROOT) + 1:
     ]
 
     host_project_path = (
-        f"{HOST_PROJECTS_ROOT}/{relative_path}"
+        f"{settings.paths.HOST_PROJECTS_ROOT}/{relative_path}"
     )
 
     subprocess.run(
@@ -60,6 +60,7 @@ def run_apply(container_id: str):
         host_project_path,
     ) = get_project_paths(container_id)
 
+    # 1. Apply изменения
     result = subprocess.run(
         [
             "docker",
@@ -101,6 +102,33 @@ def run_apply(container_id: str):
         raise RuntimeError(
             result.stderr or result.stdout
         )
+
+    # 2. Только после успешного Apply
+    git = GitService(host_project_path)
+
+    # 3. Синхронизация с remote
+    git.sync()
+
+    # 4. Забираем изменения FixOps
+    changed_files = git.status().splitlines()
+
+    if not changed_files:
+        return result.stdout
+
+    files = [
+        line[3:]
+        for line in changed_files
+    ]
+
+    # 5. Commit
+    git.add(files)
+
+    git.commit(
+        "fix: automated FixOps repair"
+    )
+
+    # 6. Push
+    git.push()
 
     return result.stdout
 
