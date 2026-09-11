@@ -14,6 +14,13 @@ from core.decorators import log_execution
 from services.analyze_error import AnalyzeJob
 
 
+def _next_log_line(stream):
+    try:
+        return next(stream)
+    except StopIteration:
+        return None
+
+
 class DockerLogWatcher:
     """Отслеживает логи FixOps-контейнеров и реагирует на ERROR."""
 
@@ -153,13 +160,6 @@ class DockerLogWatcher:
             record.get("level", {}).get("name") == "ERROR"
             or record.get("extra", {}).get("severity") == "ERROR"
         )
-
-
-    def _next_log_line(stream):
-        try:
-            return next(stream)
-        except StopIteration:
-            return None
 
 
     def is_duplicate_error(
