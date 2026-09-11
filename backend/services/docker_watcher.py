@@ -21,6 +21,7 @@ class DockerLogWatcher:
         self.client = docker.from_env()
         self.recent_errors = {}
 
+
     @log_execution(event="docker_watcher.run")
     async def run(self):
         """Запускает отслеживание всех FixOps-контейнеров."""
@@ -42,18 +43,24 @@ class DockerLogWatcher:
         else:
             await asyncio.Event().wait()
 
+
     @log_execution(event="docker_watcher.container")
     async def watch_container(self, container):
         """Отслеживает новые логи одного контейнера."""
+
         log = get_logger(
             event="docker_watcher.container",
             container=container.name,
         )
 
-        project_root = container.labels.get("fixops.project_path")
+        project_root = container.labels.get(
+            "fixops.project_path"
+        )
 
         if not project_root:
-            log.error("Container has no fixops.project_path label")
+            log.error(
+                "Container has no fixops.project_path label"
+            )
             return
 
         history = deque(
@@ -63,9 +70,12 @@ class DockerLogWatcher:
             )
         )
 
-        log.info("Started watching container logs")
+        log.info(
+            "Started watching container logs"
+        )
 
-        stream = container.logs(
+        stream = await asyncio.to_thread(
+            container.logs,
             stdout=True,
             stderr=True,
             stream=True,
@@ -73,7 +83,20 @@ class DockerLogWatcher:
             tail=0,
         )
 
-        for raw_line in stream:
+        while True:
+
+            try:
+                raw_line = await asyncio.to_thread(
+                    next,
+                    stream,
+                )
+
+            except StopIteration:
+                log.warning(
+                    "Docker log stream ended"
+                )
+                break
+
             line = raw_line.decode(
                 "utf-8",
                 errors="replace",
@@ -88,18 +111,26 @@ class DockerLogWatcher:
                 continue
 
             if self.is_error(data):
-                if self.is_duplicate_error(data):
+
+                if self.is_duplicate_error(
+                    data,
+                    container.name,
+                ):
                     continue
 
-                await self.handle_error(
-                    container=container,
-                    data=data,
-                    project_root=project_root,
-                    history=history,
+                asyncio.create_task(
+                    self.handle_error(
+                        container=container,
+                        data=data,
+                        project_root=project_root,
+                        history=history.copy(),
+                    )
                 )
+
                 continue
 
             history.append(data)
+
 
     @staticmethod
     def parse_log(line: str) -> dict | None:
@@ -108,6 +139,7 @@ class DockerLogWatcher:
             return json.loads(line)
         except json.JSONDecodeError:
             return None
+
 
     @staticmethod
     def is_error(data: dict) -> bool:
@@ -119,18 +151,23 @@ class DockerLogWatcher:
             or record.get("extra", {}).get("severity") == "ERROR"
         )
 
-    def is_duplicate_error(self, data: dict) -> bool:
+
+    def is_duplicate_error(
+        self,
+        data: dict,
+        container_name: str,
+    ) -> bool:
         """Проверяет, является ли ERROR повтором уже обработанной ошибки."""
+
         record = data.get("record", {})
         extra = record.get("extra", {})
         error = extra.get("error", {})
 
-        # HTTPException — это уже ошибка-обёртка
-        # над настоящей ошибкой.
         if error.get("type") == "HTTPException":
             return True
 
         error_key = (
+            container_name,
             extra.get("file"),
             extra.get("line"),
             error.get("type"),
@@ -138,11 +175,17 @@ class DockerLogWatcher:
         )
 
         now = time.monotonic()
-        last_seen = self.recent_errors.get(error_key)
+
+        last_seen = self.recent_errors.get(
+            error_key
+        )
 
         self.recent_errors[error_key] = now
 
-        if last_seen is not None and now - last_seen < 2:
+        if (
+            last_seen is not None
+            and now - last_seen < 2
+        ):
             return True
 
         return False
