@@ -1251,7 +1251,7 @@
 
                     <div class="card" style="margin-bottom: 24px;">
                         <div class="card-title"><span>✧</span> AI Analysis</div>
-                        <div class="collapsible" id="llmPromptCollapsible">
+                        <div class="collapsible open" id="llmPromptCollapsible">
                             <div class="collapsible-header">
                                 <span>LLM Prompt</span>
                                 <span class="collapsible-icon">▶</span>
@@ -1287,7 +1287,7 @@
                             </div>
                         </div>
 
-                        <div class="collapsible" style="margin-bottom: 8px;" id="stdoutCollapsible">
+                        <div class="collapsible open" style="margin-bottom: 8px;" id="stdoutCollapsible">
                             <div class="collapsible-header">
                                 <span>stdout</span>
                                 <span class="collapsible-icon">▶</span>
@@ -1297,7 +1297,7 @@
                             </div>
                         </div>
 
-                        <div class="collapsible" id="stderrCollapsible">
+                        <div class="collapsible open" id="stderrCollapsible">
                             <div class="collapsible-header">
                                 <span>stderr</span>
                                 <span class="collapsible-icon">▶</span>
@@ -1610,6 +1610,15 @@
                     const message = JSON.parse(event.data);
                     console.log("Job event:", message);
 
+                    // Backend may only send container_id later in the job
+                    // stream rather than in the initial job_started event —
+                    // keep it in sync on every message so Apply/Rollback
+                    // always have a target.
+                    const incomingContainerId = message.container_id || message.container;
+                    if (incomingContainerId && state.currentJob && state.currentJob.jobId === jobId) {
+                        state.currentJob.containerId = incomingContainerId;
+                    }
+
                     // Extract error info from events
                     if (message.error || message.exception) {
                         const incident = state.incidents[jobId];
@@ -1772,8 +1781,9 @@
             document.getElementById("stderrText").textContent =
                 stderrText && stderrText.trim() ? stderrText : "No stderr.";
 
-            if (data.llm_response) {
-                renderGeneratedTests(data.llm_response);
+            const rawLlmResponse = data.llm_response || data.ai_response || data.llm_output;
+            if (rawLlmResponse) {
+                renderGeneratedTests(rawLlmResponse);
             }
         }
 
@@ -1944,8 +1954,9 @@
             renderDiffBlock(data.fixed_file, data.fix_diff);
 
             // Prompt
-            if (data.llm_prompt) {
-                document.getElementById("llmPromptText").textContent = data.llm_prompt;
+            const finalPrompt = data.llm_prompt || data.prompt || data.context;
+            if (finalPrompt) {
+                document.getElementById("llmPromptText").textContent = finalPrompt;
             }
 
             // Test verification (badges, stdout/stderr, generated tests)
