@@ -482,6 +482,19 @@
             box-shadow: 0 0 16px rgba(248, 81, 73, 0.2);
         }
 
+        /* Решённый инцидент — при наведении/выборе загорается зелёным,
+           а не красным (красный зарезервирован за активными/нерешёнными). */
+        .incident-item.resolved:hover {
+            border-color: var(--green);
+            box-shadow: 0 0 14px rgba(47, 239, 176, 0.15);
+        }
+
+        .incident-item.resolved.active {
+            background: var(--panel-1);
+            border-color: var(--green);
+            box-shadow: 0 0 16px rgba(47, 239, 176, 0.2);
+        }
+
         .incident-header {
             display: flex;
             align-items: center;
@@ -1412,7 +1425,7 @@
                         const status = incident.status === "repairing" ? "active" : "resolved";
                         const statusText = incident.status === "repairing" ? "REPAIRING" : "RESOLVED";
                         return `
-                            <div class="incident-item" onclick="state.viewIncident('${jobId}')">
+                            <div class="incident-item ${status}" onclick="state.viewIncident('${jobId}')">
                                 <div class="incident-header">
                                     <div class="incident-status ${status}">${statusText}</div>
                                 </div>
@@ -2057,7 +2070,7 @@
             setActionRunning(true);
             setActionResult(
                 "running",
-                'Applying fix...\n\ndocker compose down\ndocker compose up --build -d\ngit add .\ngit commit -m "fix: automated FixOps repair"'
+                "Applying fix...\n\ndocker compose down\ndocker compose up --build -d"
             );
 
             let succeeded = false;
