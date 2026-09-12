@@ -484,6 +484,12 @@
 
         /* Решённый инцидент — при наведении/выборе загорается зелёным,
            а не красным (красный зарезервирован за активными/нерешёнными). */
+        /* Решённый инцидент — карточка постоянно (не только при наведении)
+           окрашена в зелёный, а не в красный. */
+        .incident-item.resolved {
+            border-color: rgba(47, 239, 176, 0.4);
+        }
+
         .incident-item.resolved:hover {
             border-color: var(--green);
             box-shadow: 0 0 14px rgba(47, 239, 176, 0.15);
@@ -698,6 +704,16 @@
             letter-spacing: 0.1em;
             color: var(--red);
             margin-bottom: 8px;
+        }
+
+        /* Успешно решённый инцидент — баннер переключается на зелёный. */
+        .error-banner.resolved {
+            border-color: var(--green);
+            background: rgba(47, 239, 176, 0.08);
+        }
+
+        .error-banner.resolved .error-label {
+            color: var(--green);
         }
 
         .error-message {
@@ -1201,8 +1217,8 @@
                         <button class="button secondary" onclick="state.goBack()" style="margin-top: 4px;">← Back</button>
                     </div>
 
-                    <div class="error-banner active">
-                        <div class="error-label">● Error Detected</div>
+                    <div class="error-banner active" id="incidentErrorBanner">
+                        <div class="error-label" id="incidentErrorLabel">● Error Detected</div>
                         <div class="error-message" id="incidentDetailError">KeyError: 'total'</div>
                         <div class="error-location" id="incidentDetailLocation">app/services/order.py:42</div>
                     </div>
@@ -1456,6 +1472,8 @@
                 document.getElementById("incidentDetailProject").textContent = incident.project || "Unknown";
                 document.getElementById("incidentDetailError").textContent = incident.error || "Unknown error";
                 document.getElementById("incidentDetailLocation").textContent = incident.location || "";
+
+                setIncidentBannerStatus(incident.status);
 
                 this.showPage("incident-detail");
             },
@@ -1757,6 +1775,26 @@
             element.textContent = text;
         }
 
+        /* =========================
+           ERROR BANNER STATUS
+        ========================== */
+
+        function setIncidentBannerStatus(status) {
+            const banner = document.getElementById("incidentErrorBanner");
+            const label = document.getElementById("incidentErrorLabel");
+            if (!banner || !label) return;
+
+            if (status === "resolved") {
+                banner.classList.add("resolved");
+                label.textContent = "✓ Resolved";
+            } else {
+                // "repairing" и "failed" — проблема ещё не устранена,
+                // баннер остаётся красным.
+                banner.classList.remove("resolved");
+                label.textContent = "● Error Detected";
+            }
+        }
+
         function renderGeneratedTests(llmResponse) {
             const el = document.getElementById("generatedTestsText");
             if (!el) return;
@@ -1886,6 +1924,7 @@
 
         function resetIncidentView() {
             resetIncidentDisplays({ clearActionBox: true });
+            setIncidentBannerStatus("repairing");
             // Новый инцидент — снимаем блокировку с кнопок, оставшуюся
             // с предыдущего инцидента (если там был Apply/Rollback).
             setActionRunning(false);
@@ -1959,6 +1998,8 @@
             console.log("Workflow finished:", data);
 
             const success = data.status === "success" || data.tests_passed === true;
+
+            setIncidentBannerStatus(success ? "resolved" : "failed");
 
             // Mark all steps as completed (unless already marked failed)
             document.querySelectorAll(".workflow-step").forEach((step, i) => {
