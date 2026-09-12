@@ -8,6 +8,7 @@
 
 ```
 <style>
+
     :root {
         --bg: #05070A;
         --panel: #0D1117;
@@ -67,6 +68,45 @@
     /* =========================
        SIDEBAR
     ========================== */
+
+    .container-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+
+        padding: 14px 16px;
+
+        border-top: 1px solid var(--border);
+
+        background: rgba(13,17,23,.45);
+    }
+
+    .container-item:first-child {
+        border-top: none;
+    }
+
+    .container-item strong {
+        display: block;
+
+        color: var(--text);
+        font-size: 12px;
+        font-weight: 700;
+    }
+
+    .container-item div div {
+        margin-top: 4px;
+
+        color: var(--muted);
+        font-size: 10px;
+    }
+
+    .container-item > span {
+        color: var(--green);
+        font-size: 10px;
+        font-family: monospace;
+    }
+
 
     .sidebar {
         position: relative;
@@ -3114,7 +3154,9 @@
 
     async function loadContainers() {
         try {
-            const response = await fetch("/api/containers");
+            const response = await fetch(
+                `${API_URL}/api/containers`
+            );
 
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
