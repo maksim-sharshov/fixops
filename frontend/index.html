@@ -1380,9 +1380,10 @@
             addIncident(jobId, incident) {
                 this.incidents[jobId] = incident;
                 this.updateStats();
+                this.renderIncidents();
             },
 
-            setCurrentJob(jobId, containerId) {
+            setCurrentJob(jobId, containerId, { navigate = true } = {}) {
                 // Если это тот же самый job (например, событие job_started
                 // пришло повторно после переподключения WebSocket при
                 // переключении вкладок/окон), не сбрасываем уже отображённый
@@ -1392,7 +1393,7 @@
                 if (isNewJob) {
                     resetIncidentView();
                 }
-                this.loadIncidentDetail(jobId);
+                this.loadIncidentDetail(jobId, { navigate });
             },
 
             updateStats() {
@@ -1464,7 +1465,7 @@
                 this.loadIncidentDetail(jobId);
             },
 
-            loadIncidentDetail(jobId) {
+            loadIncidentDetail(jobId, { navigate = true } = {}) {
                 const incident = this.incidents[jobId];
                 if (!incident) return;
 
@@ -1475,7 +1476,9 @@
 
                 setIncidentBannerStatus(incident.status);
 
-                this.showPage("incident-detail");
+                if (navigate) {
+                    this.showPage("incident-detail");
+                }
             },
 
             goBack() {
@@ -1621,8 +1624,16 @@
                             });
                         }
 
-                        state.setCurrentJob(jobId, containerId);
-                        state.showPage("incident-detail");
+                        // При появлении новой ошибки данные инцидента
+                        // обновляются в фоне (для будущего просмотра), но
+                        // сама текущая страница (например, Overview) не
+                        // подменяется анализом — вместо этого показываем
+                        // список Incidents.
+                        state.setCurrentJob(jobId, containerId, { navigate: false });
+                        state.showPage("incidents");
+                        document.querySelectorAll(".nav-link").forEach(l => l.classList.remove("active"));
+                        const incidentsLink = document.querySelector('[data-page="incidents"]');
+                        if (incidentsLink) incidentsLink.classList.add("active");
 
                         // Job-сокет переоткрываем только для реально нового
                         // job'а, чтобы не рвать уже активное соединение.
@@ -2111,7 +2122,7 @@
             setActionRunning(true);
             setActionResult(
                 "running",
-                'Applying fix...\n\ndocker compose down\ndocker compose up --build -d\ngit add .\ngit commit -m "fix: automated FixOps repair"'
+                "Applying fix...\n\ndocker compose down\ndocker compose up --build -d"
             );
 
             let succeeded = false;
