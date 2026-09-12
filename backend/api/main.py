@@ -11,6 +11,9 @@ from services.docker_watcher import DockerLogWatcher
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     watcher = DockerLogWatcher()
+
+    app.state.docker_watcher = watcher
+
     watcher_task = asyncio.create_task(watcher.run())
 
     yield

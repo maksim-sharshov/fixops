@@ -25,9 +25,8 @@ class DockerLogWatcher:
 
     def __init__(self):
         self.client = docker.from_env()
-
         self.recent_errors = {}
-
+        self.containers = {}
         self.watch_tasks: dict[str, asyncio.Task] = {}
 
 
@@ -50,6 +49,11 @@ class DockerLogWatcher:
                         "label": "fixops.enabled=true"
                     },
                 )
+
+                self.containers = {
+                    container.id: container
+                    for container in containers
+                }
 
                 active_ids = {
                     container.id

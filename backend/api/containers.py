@@ -3,14 +3,31 @@ from services.container_manager import (
     run_apply,
     run_rollback
 )
-
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Request, HTTPException
 
 
 router = APIRouter(
     prefix="/api/containers",
     tags=["containers"],
 )
+
+
+@router.get("")
+async def get_containers(request: Request):
+    watcher = request.app.state.docker_watcher
+
+    return [
+        {
+            "id": container.id,
+            "name": container.name,
+            "status": container.status,
+            "project": container.labels.get("fixops.project"),
+            "project_path": container.labels.get(
+                "fixops.project_path"
+            ),
+        }
+        for container in watcher.containers.values()
+    ]
 
 
 @router.post("/{container_id}/apply")

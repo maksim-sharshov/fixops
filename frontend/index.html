@@ -3100,6 +3100,28 @@
     /* =========================
        GLOBAL MONITOR WEBSOCKET
     ========================== */
+    async function loadContainers() {
+        try {
+            const response = await fetch("/api/containers");
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const containers = await response.json();
+
+            console.log(
+                "[FixOps] Containers:",
+                containers
+            );
+
+        } catch (error) {
+            console.error(
+                "[FixOps] Failed to load containers:",
+                error
+            );
+        }
+    }
 
     function connectMonitorWebSocket() {
 
@@ -3415,6 +3437,7 @@
         "Connecting..."
     );
 
+    loadContainers();
     connectMonitorWebSocket();
 
 })();
