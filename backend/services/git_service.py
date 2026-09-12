@@ -2,6 +2,7 @@ import subprocess
 
 
 class GitService:
+
     def __init__(
         self,
         repo_path: str,
@@ -203,11 +204,6 @@ class GitService:
         for line in result.stdout.splitlines():
             if not line.strip():
                 continue
-
-            # Первые два символа — статус Git:
-            # " M file.py"
-            # "M  file.py"
-            # "?? file.py"
             path = line[3:]
 
             if path:
