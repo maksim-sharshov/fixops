@@ -2111,7 +2111,7 @@
             setActionRunning(true);
             setActionResult(
                 "running",
-                "Applying fix...\n\ndocker compose down\ndocker compose up --build -d"
+                'Applying fix...\n\ndocker compose down\ndocker compose up --build -d\ngit add .\ngit commit -m "fix: automated FixOps repair"'
             );
 
             let succeeded = false;
