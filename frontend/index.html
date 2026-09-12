@@ -1209,6 +1209,17 @@
 
         <!-- START -->
 
+        <section class="card">
+            <div class="card-header">
+                <div>
+                    <div class="eyebrow">INFRASTRUCTURE</div>
+                    <h2>Containers</h2>
+                </div>
+            </div>
+
+            <div id="containersList"></div>
+        </section>
+
         <section class="start-card">
 
             <div class="input-row">
@@ -3100,6 +3111,7 @@
     /* =========================
        GLOBAL MONITOR WEBSOCKET
     ========================== */
+
     async function loadContainers() {
         try {
             const response = await fetch("/api/containers");
@@ -3110,10 +3122,27 @@
 
             const containers = await response.json();
 
-            console.log(
-                "[FixOps] Containers:",
-                containers
-            );
+            const containersList =
+                document.getElementById("containersList");
+
+            containersList.innerHTML = "";
+
+            containers.forEach(container => {
+                const item = document.createElement("div");
+
+                item.className = "container-item";
+
+                item.innerHTML = `
+                    <div>
+                        <strong>${container.name}</strong>
+                        <div>${container.project || "Unknown project"}</div>
+                    </div>
+
+                    <span>${container.status}</span>
+                `;
+
+                containersList.appendChild(item);
+            });
 
         } catch (error) {
             console.error(
