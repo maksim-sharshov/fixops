@@ -1354,8 +1354,15 @@
             },
 
             setCurrentJob(jobId, containerId) {
+                // Если это тот же самый job (например, событие job_started
+                // пришло повторно после переподключения WebSocket при
+                // переключении вкладок/окон), не сбрасываем уже отображённый
+                // прогресс — только обновляем containerId.
+                const isNewJob = !this.currentJob || this.currentJob.jobId !== jobId;
                 this.currentJob = { jobId, containerId };
-                resetIncidentView();
+                if (isNewJob) {
+                    resetIncidentView();
+                }
                 this.loadIncidentDetail(jobId);
             },
 
@@ -1528,6 +1535,12 @@
             }
         }
 
+        // Периодически обновляем список контейнеров, чтобы новые
+        // (появившиеся на бэкенде) отображались в UI сразу, а не только
+        // после перезагрузки страницы.
+        const CONTAINERS_POLL_INTERVAL_MS = 3000;
+        setInterval(loadContainers, CONTAINERS_POLL_INTERVAL_MS);
+
         /* =========================
            WEBSOCKET: MONITOR
         ========================== */
@@ -1554,27 +1567,37 @@
                     if (message.type === "job_started" || message.event === "job_started") {
                         const jobId = message.job_id;
                         const containerId = message.container_id || message.container;
+                        const isKnownJob = Boolean(state.incidents[jobId]);
 
-                        // Find container name
-                        const container = state.containers.find(c => c.id === containerId);
-                        const containerName = container ? container.name : containerId;
-                        const project = container ? container.project : "Unknown";
+                        // Добавляем инцидент только если его ещё нет: если это
+                        // повторное событие job_started для уже известного
+                        // job (например, из-за переподключения сокета), не
+                        // затираем уже накопленные error/status.
+                        if (!isKnownJob) {
+                            const container = state.containers.find(c => c.id === containerId);
+                            const containerName = container ? container.name : containerId;
+                            const project = container ? container.project : "Unknown";
 
-                        // Add incident to state
-                        state.addIncident(jobId, {
-                            jobId: jobId,
-                            containerId: containerId,
-                            containerName: containerName,
-                            project: project,
-                            error: "Error detected...",
-                            location: "",
-                            status: "repairing",
-                            timestamp: new Date().toLocaleTimeString(),
-                        });
+                            state.addIncident(jobId, {
+                                jobId: jobId,
+                                containerId: containerId,
+                                containerName: containerName,
+                                project: project,
+                                error: "Error detected...",
+                                location: "",
+                                status: "repairing",
+                                timestamp: new Date().toLocaleTimeString(),
+                            });
+                        }
 
                         state.setCurrentJob(jobId, containerId);
                         state.showPage("incident-detail");
-                        connectJob(jobId);
+
+                        // Job-сокет переоткрываем только для реально нового
+                        // job'а, чтобы не рвать уже активное соединение.
+                        if (!isKnownJob) {
+                            connectJob(jobId);
+                        }
                     }
                 } catch (error) {
                     console.error("Invalid monitor message:", error);
@@ -1816,7 +1839,7 @@
            RESET / NEW JOB
         ========================== */
 
-        function resetIncidentView() {
+        function resetIncidentDisplays({ clearActionBox = true } = {}) {
             document.querySelectorAll(".workflow-step").forEach((step, i) => {
                 step.className = "workflow-step";
                 const circle = step.querySelector(".step-circle");
@@ -1841,9 +1864,18 @@
 
             document.getElementById("actionButtons").style.display = "none";
 
-            const actionBox = document.getElementById("actionResultBox");
-            actionBox.className = "";
-            actionBox.textContent = "";
+            if (clearActionBox) {
+                const actionBox = document.getElementById("actionResultBox");
+                actionBox.className = "";
+                actionBox.textContent = "";
+            }
+        }
+
+        function resetIncidentView() {
+            resetIncidentDisplays({ clearActionBox: true });
+            // Новый инцидент — снимаем блокировку с кнопок, оставшуюся
+            // с предыдущего инцидента (если там был Apply/Rollback).
+            setActionRunning(false);
         }
 
         function handleJobEvent(message) {
@@ -2028,6 +2060,8 @@
                 "Applying fix...\n\ndocker compose down\ndocker compose up --build -d"
             );
 
+            let succeeded = false;
+
             try {
                 const response = await fetch(
                     `${API_URL}/api/containers/${encodeURIComponent(containerId)}/apply`,
@@ -2046,11 +2080,18 @@
                 setActionResult("success", "✓ Fix applied successfully.\n\n" + output);
                 setConnectionStatus("connected");
                 console.log("Apply fix successful");
+                succeeded = true;
             } catch (error) {
                 console.error("Apply fix failed:", error);
                 setActionResult("error", "✗ Apply failed.\n\n" + error.message);
             } finally {
-                setActionRunning(false);
+                // После успешного применения фикса кнопки остаются
+                // заблокированными, чтобы нельзя было запустить действие
+                // повторно для этого же инцидента. При ошибке — разблокируем,
+                // чтобы можно было повторить попытку.
+                if (!succeeded) {
+                    setActionRunning(false);
+                }
             }
         }
 
@@ -2070,6 +2111,8 @@
             setActionRunning(true);
             setActionResult("running", "Rolling back...\n\nResetting project to clean Git state...");
 
+            let succeeded = false;
+
             try {
                 const response = await fetch(
                     `${API_URL}/api/containers/${encodeURIComponent(containerId)}/rollback`,
@@ -2085,18 +2128,26 @@
 
                 const output = data?.output || data?.result?.output || data?.result || "Rollback completed successfully.";
 
+                // Полностью сбрасываем всё отображение инцидента (workflow,
+                // диф, результаты, бейджи тестов), но НЕ трогаем блок с
+                // результатом действия — в него сейчас же запишем сообщение
+                // об успехе.
+                resetIncidentDisplays({ clearActionBox: false });
+
                 setActionResult("success", "✓ Rollback completed successfully.\n\n" + output);
                 setConnectionStatus("connected");
 
-                // После rollback изменения больше не отображаются как актуальный fix.
-                renderDiffBlock(null, null);
-
                 console.log("Rollback successful");
+                succeeded = true;
             } catch (error) {
                 console.error("Rollback failed:", error);
                 setActionResult("error", "✗ Rollback failed.\n\n" + error.message);
             } finally {
-                setActionRunning(false);
+                // После успешного отката кнопки остаются заблокированными —
+                // откатывать уже нечего. При ошибке разблокируем для повтора.
+                if (!succeeded) {
+                    setActionRunning(false);
+                }
             }
         }
 
