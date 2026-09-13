@@ -27,6 +27,8 @@ export function mapIncidentSummary(item: IncidentListItem): Incident {
     status: item.status,
     timestamp: formatTimestamp(item.created_at),
     createdAt: item.created_at ?? undefined,
+    appliedAt: item.applied_at ?? null,
+    rolledBackAt: item.rolled_back_at ?? null,
   };
 }
 

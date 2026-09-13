@@ -77,6 +77,7 @@ export function IncidentDetail() {
   }
 
   const containerId = incident.containerId || jobState.containerId;
+  const actionsTaken = Boolean(incident.appliedAt || incident.rolledBackAt);
 
   async function handleApplyFix() {
     if (!containerId) {
@@ -86,11 +87,12 @@ export function IncidentDetail() {
     setActionsLocked(true);
     setActionState({
       kind: "running",
-      message: 'Applying fix...\n\ndocker compose down\ndocker compose up --build -d\n git add .\n git commit -m "fix: automated FixOps repair"'
+      message: 'Applying fix...\n\ndocker compose down\ndocker compose up --build -d\ngit add .\ngit commit -m "fix: automated FixOps repair"'
     });
 
     try {
-      const output = await api.applyFix(containerId);
+      const output = await api.applyIncidentFix(jobId);
+      updateIncident(jobId, { appliedAt: new Date().toISOString() });
       setActionState({ kind: "success", message: `Fix applied successfully.\n\n${output}` });
       // Buttons stay locked after a successful apply — nothing left to
       // apply again for this incident.
@@ -115,7 +117,8 @@ export function IncidentDetail() {
     setActionState({ kind: "running", message: "Rolling back...\n\nResetting project to clean Git state..." });
 
     try {
-      const output = await api.rollback(containerId);
+      const output = await api.rollbackIncident(jobId);
+      updateIncident(jobId, { rolledBackAt: new Date().toISOString() });
       setActionState({ kind: "success", message: `Rollback completed successfully.\n\n${output}` });
     } catch (error) {
       const message = error instanceof ApiError ? error.message : "Unknown error";
@@ -124,7 +127,7 @@ export function IncidentDetail() {
     }
   }
 
-  const showActions = jobState.result !== null;
+  const showActions = jobState.result !== null && !actionsTaken;
 
   return (
     <div className="fade-in">

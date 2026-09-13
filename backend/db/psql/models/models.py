@@ -1,7 +1,8 @@
 from typing import TypeVar, Generic, Sequence
+from datetime import datetime
 
 from sqlalchemy.exc import NoResultFound
-from sqlalchemy import Integer, Text, JSON
+from sqlalchemy import Integer, Text, JSON, DateTime
 from sqlalchemy.sql import select, update as sqlalchemy_update
 from sqlalchemy.orm import Mapped, selectinload, load_only, mapped_column
 
@@ -221,6 +222,19 @@ class IncidentResult(Base, ModelAdmin):
     generated_tests: Mapped[list | None] = mapped_column(
         JSON,
         comment='Сгенерированные тесты'
+    )
+
+    applied_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        comment='Когда исправление было применено'
+    )
+    apply_output: Mapped[str | None] = mapped_column(
+        Text,
+        comment='Вывод применения исправления'
+    )
+    rolled_back_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        comment='Когда исправление было откатано'
     )
 
     created_at: Mapped[created_at]

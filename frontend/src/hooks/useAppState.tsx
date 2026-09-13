@@ -106,6 +106,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           status: "repairing",
           timestamp: now.toLocaleTimeString(),
           createdAt: now.toISOString(),
+          appliedAt: null,
+          rolledBackAt: null,
         };
         return { ...prev, [jobId]: incident };
       });

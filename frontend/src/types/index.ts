@@ -34,6 +34,10 @@ export interface Incident {
   timestamp: string;
   /** ISO timestamp, used for stable sorting when loaded from the API. */
   createdAt?: string;
+  /** Set once the fix has been applied (deployed + committed). */
+  appliedAt?: string | null;
+  /** Set once the fix has been rolled back. */
+  rolledBackAt?: string | null;
 }
 
 // ---------------------------------------------------------
@@ -50,6 +54,8 @@ export interface IncidentListItem {
   error_message: string | null;
   error_location: string | null;
   status: IncidentStatus;
+  applied_at: string | null;
+  rolled_back_at: string | null;
   created_at: string | null;
 }
 

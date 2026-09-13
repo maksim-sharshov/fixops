@@ -136,6 +136,45 @@ export async function getIncident(
   return (await response.json()) as IncidentDetail;
 }
 
+/**
+ * POST /api/incidents/{jobId}/apply
+ * Applies the repair (deploy + git commit/push) and records it on the
+ * incident, so the action is not offered again after a reload.
+ */
+export async function applyIncidentFix(jobId: string): Promise<string> {
+  const response = await fetch(
+    `${API_URL}/api/incidents/${encodeURIComponent(jobId)}/apply`,
+    { method: "POST", headers: { "Content-Type": "application/json" } }
+  );
+  const data = await parseJsonSafe(response);
+  if (!response.ok) {
+    throw new ApiError(
+      extractErrorMessage(data, `Apply failed (${response.status})`),
+      response.status
+    );
+  }
+  return extractOutput(data, "Fix applied successfully.");
+}
+
+/**
+ * POST /api/incidents/{jobId}/rollback
+ * Reverts the repair and records it on the incident.
+ */
+export async function rollbackIncident(jobId: string): Promise<string> {
+  const response = await fetch(
+    `${API_URL}/api/incidents/${encodeURIComponent(jobId)}/rollback`,
+    { method: "POST", headers: { "Content-Type": "application/json" } }
+  );
+  const data = await parseJsonSafe(response);
+  if (!response.ok) {
+    throw new ApiError(
+      extractErrorMessage(data, `Rollback failed (${response.status})`),
+      response.status
+    );
+  }
+  return extractOutput(data, "Rollback completed successfully.");
+}
+
 // ---------------------------------------------------------
 // TODO: endpoints referenced conceptually by the product spec
 // but not present (or not confirmed) in the current backend.
