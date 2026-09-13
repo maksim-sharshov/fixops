@@ -30,7 +30,47 @@ export interface Incident {
   error: string;
   location: string;
   status: IncidentStatus;
+  /** Display timestamp (locale time string). */
   timestamp: string;
+  /** ISO timestamp, used for stable sorting when loaded from the API. */
+  createdAt?: string;
+}
+
+// ---------------------------------------------------------
+// Persisted incidents (Postgres) — response shapes of
+// GET /api/incidents and GET /api/incidents/{jobId}.
+// ---------------------------------------------------------
+
+export interface IncidentListItem {
+  id: number;
+  job_id: string;
+  container_id: string | null;
+  container_name: string | null;
+  project: string | null;
+  error_message: string | null;
+  error_location: string | null;
+  status: IncidentStatus;
+  created_at: string | null;
+}
+
+export interface IncidentStepRecord {
+  id: WorkflowStepId;
+  state: WorkflowStepState;
+}
+
+export interface IncidentDetail extends IncidentListItem {
+  steps: IncidentStepRecord[] | null;
+  llm_prompt: string | null;
+  ai_context: string | null;
+  fixed_file: string | null;
+  fix_diff: string | null;
+  tests_passed: boolean | null;
+  test_return_code: number | null;
+  test_result_type: string | null;
+  reproduction_passed: boolean | null;
+  test_stdout: string | null;
+  test_stderr: string | null;
+  generated_tests: string[] | null;
 }
 
 // ---------------------------------------------------------

@@ -1,4 +1,4 @@
-import type { Container } from "../types";
+import type { Container, IncidentDetail, IncidentListItem } from "../types";
 
 // The backend host is configurable via Vite env var so it's not
 // hardcoded in source. Falls back to the address used by the
@@ -103,6 +103,40 @@ export async function rollback(containerId: string): Promise<string> {
 }
 
 // ---------------------------------------------------------
+// Persisted incidents (Postgres)
+// ---------------------------------------------------------
+
+/**
+ * GET /api/incidents
+ * Returns the persisted incident history (survives reloads).
+ */
+export async function getIncidents(): Promise<IncidentListItem[]> {
+  const response = await fetch(`${API_URL}/api/incidents`);
+  if (!response.ok) {
+    throw new ApiError(`HTTP ${response.status}`, response.status);
+  }
+  return (await response.json()) as IncidentListItem[];
+}
+
+/**
+ * GET /api/incidents/{jobId}
+ * Full incident detail. Returns null when the incident is not persisted
+ * yet (e.g. a job that is still starting up).
+ */
+export async function getIncident(
+  jobId: string
+): Promise<IncidentDetail | null> {
+  const response = await fetch(
+    `${API_URL}/api/incidents/${encodeURIComponent(jobId)}`
+  );
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    throw new ApiError(`HTTP ${response.status}`, response.status);
+  }
+  return (await response.json()) as IncidentDetail;
+}
+
+// ---------------------------------------------------------
 // TODO: endpoints referenced conceptually by the product spec
 // but not present (or not confirmed) in the current backend.
 // Do NOT invent request/response shapes for these — wire them
@@ -113,10 +147,8 @@ export async function rollback(containerId: string): Promise<string> {
 // (CPU/memory/logs), used by a future ContainerDetail page.
 // export async function getContainerDetail(id: string): Promise<ContainerDetail> {}
 
-// TODO: GET /api/incidents — server-side incident history/persistence.
-// Today incidents are derived entirely client-side from WebSocket
-// events (see hooks/useMonitorSocket.ts), so a reload loses history.
-// export async function getIncidents(): Promise<Incident[]> {}
+// NOTE: GET /api/incidents and GET /api/incidents/{jobId} are implemented
+// above and backed by Postgres, so incident history now survives reloads.
 
 // TODO: GET /api/jobs/{jobId} — fetch full job state on demand
 // (e.g. to support deep-linking directly to an Incident Detail

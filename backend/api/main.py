@@ -5,11 +5,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.router import api_router
+from db.psql.crud.base import create_tables
 from services.docker_watcher import DockerLogWatcher
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    await create_tables()
+
     watcher = DockerLogWatcher()
 
     app.state.docker_watcher = watcher

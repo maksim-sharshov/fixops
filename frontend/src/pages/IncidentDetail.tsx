@@ -86,7 +86,7 @@ export function IncidentDetail() {
     setActionsLocked(true);
     setActionState({
       kind: "running",
-      message: "Applying fix...\n\ndocker compose down\ndocker compose up --build -d",
+      message: 'Applying fix...\n\ndocker compose down\ndocker compose up --build -d\n git add .\n git commit -m "fix: automated FixOps repair"'
     });
 
     try {

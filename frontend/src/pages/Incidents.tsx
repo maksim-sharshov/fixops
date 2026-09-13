@@ -6,7 +6,7 @@ import { useAppState } from "../hooks/useAppStateHook";
 export function Incidents() {
   const { incidents } = useAppState();
   const list = Object.values(incidents).sort((a, b) =>
-    a.timestamp < b.timestamp ? 1 : -1
+    (a.createdAt ?? a.timestamp) < (b.createdAt ?? b.timestamp) ? 1 : -1
   );
 
   return (

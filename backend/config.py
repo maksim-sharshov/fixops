@@ -35,18 +35,6 @@ class DeepSeekConfig(BaseSettings):
     )
 
 
-class GroqSeekConfig(BaseSettings):
-    """Конфигурация для Groq API."""
-
-    TOKEN: str = ''
-
-    model_config = SettingsConfigDict(
-        env_prefix="GROQ_",
-        env_file=".env",
-        extra="ignore"
-    )
-
-
 class RedisConfig(BaseSettings):
     """Конфигурация для Redis."""
 
@@ -68,6 +56,24 @@ class RedisConfig(BaseSettings):
         if self.PASSWORD:
             return f"redis://:{self.PASSWORD}@{self.HOST}:{self.PORT}/{self.NAME}"
         return f"redis://{self.HOST}:{self.PORT}/{self.NAME}"
+
+
+class PostgresConfig(BaseSettings):
+    NAME: str
+    HOST: str
+    PORT: int
+    PASSWORD: str
+    USER: str
+
+    @property
+    def URL(self) -> str:
+        return f"postgresql+asyncpg://{self.USER}:{self.PASSWORD}@{self.HOST}:{self.PORT}/{self.NAME}"
+
+    model_config = SettingsConfigDict(
+        env_prefix='POSTGRES_',
+        env_file='.env',
+        extra='ignore',
+    )
 
 
 class LoggingConfig(BaseSettings):
@@ -102,8 +108,8 @@ class Settings:
     paths = PathConfig()
     analysis = AnalysisConfig()
     deepseek = DeepSeekConfig()
-    groq = GroqSeekConfig()
     redis = RedisConfig()
+    postgres = PostgresConfig()
     logging = LoggingConfig()
 
 

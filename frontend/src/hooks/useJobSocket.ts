@@ -1,5 +1,5 @@
 import { useEffect, useReducer, useRef } from "react";
-import { WS_URL } from "../services/api";
+import { WS_URL, getIncident } from "../services/api";
 import {
   extractVerification,
   getJobEventNode,
@@ -7,8 +7,15 @@ import {
   normalizeStepName,
   parseDiff,
 } from "../lib/normalize";
+import { mapIncidentDetail } from "../lib/incidents";
 import { createInitialSteps } from "../lib/workflowSteps";
-import type { ErrorInfo, JobEventRaw, JobState } from "../types";
+import type {
+  ErrorInfo,
+  JobEventRaw,
+  JobState,
+  VerificationResult,
+  WorkflowStepModel,
+} from "../types";
 
 interface UseJobSocketOptions {
   jobId: string | null;
@@ -42,6 +49,7 @@ function createInitialJobState(jobId: string): JobState {
 
 type Action =
   | { type: "reset"; jobId: string }
+  | { type: "hydrate"; state: Partial<JobState> }
   | { type: "workflow_started" }
   | { type: "step_state"; node: string; state: "active" | "completed" | "failed" }
   | { type: "diff"; fileName: string | null; diff: string }
@@ -50,10 +58,72 @@ type Action =
   | { type: "verification"; message: JobEventRaw }
   | { type: "finished"; success: boolean };
 
+/**
+ * Merge persisted steps into live state: a step already touched by the
+ * WebSocket stream (non-pending) always wins over the persisted value.
+ */
+function mergeSteps(
+  current: WorkflowStepModel[],
+  hydrated: WorkflowStepModel[] | undefined
+): WorkflowStepModel[] {
+  if (!hydrated) return current;
+  return current.map((step) => {
+    if (step.state !== "pending") return step;
+    const saved = hydrated.find((candidate) => candidate.id === step.id);
+    return saved ? { ...step, state: saved.state } : step;
+  });
+}
+
+/** Prefer non-null live verification fields, fall back to persisted ones. */
+function mergeVerification(
+  current: VerificationResult,
+  hydrated: VerificationResult | undefined
+): VerificationResult {
+  if (!hydrated) return current;
+  const pick = <T,>(live: T | null, saved: T | null): T | null =>
+    live === null || live === undefined ? saved : live;
+
+  return {
+    testsPassed: pick(current.testsPassed, hydrated.testsPassed),
+    returnCode: pick(current.returnCode, hydrated.returnCode),
+    resultType: pick(current.resultType, hydrated.resultType),
+    reproductionPassed: pick(
+      current.reproductionPassed,
+      hydrated.reproductionPassed
+    ),
+    stdout: pick(current.stdout, hydrated.stdout),
+    stderr: pick(current.stderr, hydrated.stderr),
+    generatedTests: pick(current.generatedTests, hydrated.generatedTests),
+  };
+}
+
 function reducer(state: JobState, action: Action): JobState {
   switch (action.type) {
     case "reset":
       return createInitialJobState(action.jobId);
+    case "hydrate": {
+      const hydrated = action.state;
+      return {
+        ...state,
+        containerId: state.containerId ?? hydrated.containerId ?? null,
+        steps: mergeSteps(state.steps, hydrated.steps),
+        aiAnalysis: {
+          prompt: state.aiAnalysis.prompt ?? hydrated.aiAnalysis?.prompt ?? null,
+          diagnosis:
+            state.aiAnalysis.diagnosis ??
+            hydrated.aiAnalysis?.diagnosis ??
+            null,
+          context:
+            state.aiAnalysis.context ?? hydrated.aiAnalysis?.context ?? null,
+        },
+        diff: state.diff ?? hydrated.diff ?? null,
+        verification: mergeVerification(
+          state.verification,
+          hydrated.verification
+        ),
+        result: state.result ?? hydrated.result ?? null,
+      };
+    }
     case "workflow_started":
       return { ...state, steps: createInitialSteps() };
     case "step_state":
@@ -232,6 +302,29 @@ export function useJobSocket({
 
     return () => {
       socket.close();
+    };
+  }, [jobId]);
+
+  // Hydrate from the persisted incident so the detail page renders after a
+  // reload (the WebSocket history is in-memory and may be gone). Live events
+  // take precedence via the merge logic in the `hydrate` reducer case.
+  useEffect(() => {
+    if (!jobId) return;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const detail = await getIncident(jobId);
+        if (cancelled || !detail) return;
+        dispatch({ type: "hydrate", state: mapIncidentDetail(detail) });
+      } catch (error) {
+        console.error("Failed to load incident detail:", error);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
     };
   }, [jobId]);
 

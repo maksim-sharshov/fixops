@@ -21,6 +21,7 @@ analyze_error.py — статический анализ ошибки по гр�
   - llm_prompt.md            — ИТОГОВЫЙ промпт, который уходит в LLM
 """
 import os
+import re
 import sys
 import json
 import asyncio
@@ -28,8 +29,33 @@ from uuid import uuid4
 
 from config import settings
 from core.events import events
+from core.logging import app_logger
 from code_intel.html_view import save_html_view
+from db.psql.models.models import IncidentResult
 from services.workflow import create_workflow, FixOpsState
+
+
+WORKFLOW_STEP_ORDER = (
+    "indexer",
+    "graph_builder",
+    "error_analyzer",
+    "context_builder",
+    "llm",
+    "code_fixer",
+    "test_runner",
+)
+
+NODE_TO_STEP = {
+    "indexer": "indexer",
+    "graph_builder": "graph_builder",
+    "error_analyzer": "error_analyzer",
+    "context_builder": "context_builder",
+    "llm": "llm",
+    "apply_fix": "code_fixer",
+    "run_tests": "test_runner",
+}
+
+TEST_BLOCK_RE = re.compile(r"```test\s*(.*?)```", re.DOTALL)
 
 
 # Принудительно устанавливаем UTF-8 для стандартного вывода
@@ -105,6 +131,9 @@ class AnalyzeJob:
         logs_dir: str | None = None,
         extra_ignore_dirs: tuple = (),
         job_id: str | None = None,
+        container_id: str | None = None,
+        container_name: str | None = None,
+        project: str | None = None,
     ):
         self.project_root = os.path.abspath(project_root)
         self.error_log = error_log
@@ -112,9 +141,131 @@ class AnalyzeJob:
         self.extra_ignore_dirs = tuple(extra_ignore_dirs)
         self.workflow = create_workflow()
         self.job_id = job_id or uuid4().hex
+        self.container_id = container_id
+        self.container_name = container_name
+        self.project = project
+
+    # ----------------------------------------------------------------
+    # Персистенция инцидента (Postgres)
+    # ----------------------------------------------------------------
+
+    def _format_error_message(self) -> str:
+        """error_log['error'] — либо dict {type, message}, либо строка."""
+        error = self.error_log.get("error")
+
+        if isinstance(error, dict):
+            error_type = error.get("type") or ""
+            message = error.get("message") or ""
+            return f"{error_type}: {message}".strip(": ") or str(error)
+
+        return str(error) if error is not None else ""
+
+    def _format_error_location(self) -> str:
+        file = self.error_log.get("file") or ""
+        try:
+            file = os.path.relpath(file, self.project_root)
+        except ValueError:
+            pass
+        file = file.replace(os.sep, "/")
+        return (
+            f"{file}:{self.error_log.get('line')} "
+            f"in {self.error_log.get('function')}()"
+        )
+
+    @staticmethod
+    def _initial_steps() -> list[dict]:
+        return [{"id": step, "state": "pending"} for step in WORKFLOW_STEP_ORDER]
+
+    def _build_steps(self) -> list[dict]:
+        """Собирает состояния шагов из событий workflow для этого job."""
+        states = {step: "pending" for step in WORKFLOW_STEP_ORDER}
+
+        for event in events.history.get(self.job_id, []):
+            step = NODE_TO_STEP.get(event.get("node"))
+            if step is None:
+                continue
+
+            kind = event.get("event")
+            if kind == "node_started":
+                states[step] = "active"
+            elif kind == "node_completed":
+                states[step] = "completed"
+            elif kind == "node_failed":
+                states[step] = "failed"
+
+        return [{"id": step, "state": states[step]} for step in WORKFLOW_STEP_ORDER]
+
+    @staticmethod
+    def _serialize_context(context) -> str | None:
+        if context is None:
+            return None
+        if isinstance(context, str):
+            return context
+        try:
+            return json.dumps(context, ensure_ascii=False)
+        except TypeError:
+            return str(context)
+
+    @staticmethod
+    def _extract_generated_tests(llm_response: str | None) -> list[str] | None:
+        if not llm_response:
+            return None
+        blocks = [block.strip() for block in TEST_BLOCK_RE.findall(llm_response)]
+        return blocks or None
+
+    async def _create_incident(self) -> None:
+        """Создаёт запись инцидента со статусом repairing до запуска workflow."""
+        try:
+            await IncidentResult.create(
+                job_id=self.job_id,
+                container_id=self.container_id,
+                container_name=self.container_name,
+                project=self.project,
+                error_message=self._format_error_message(),
+                error_location=self._format_error_location(),
+                status="repairing",
+                steps=self._initial_steps(),
+            )
+        except Exception:
+            app_logger.bind(event="incident.persist").exception(
+                "Failed to create incident record for job {}",
+                self.job_id,
+            )
+
+    async def _persist_result(self, final_state: dict) -> None:
+        """Обновляет запись инцидента итогами workflow."""
+        try:
+            record = await IncidentResult.get(job_id=self.job_id)
+            if record is None:
+                return
+
+            await record.update(
+                status="resolved" if final_state.get("tests_passed") else "failed",
+                steps=self._build_steps(),
+                llm_prompt=final_state.get("llm_prompt"),
+                ai_context=self._serialize_context(final_state.get("llm_context")),
+                fixed_file=final_state.get("fixed_file"),
+                fix_diff=final_state.get("fix_diff"),
+                tests_passed=final_state.get("tests_passed"),
+                test_return_code=final_state.get("test_return_code"),
+                test_result_type=final_state.get("test_result_type"),
+                reproduction_passed=final_state.get("reproduction_passed"),
+                test_stdout=final_state.get("test_stdout"),
+                test_stderr=final_state.get("test_stderr"),
+                generated_tests=self._extract_generated_tests(
+                    final_state.get("llm_response")
+                ),
+            )
+        except Exception:
+            app_logger.bind(event="incident.persist").exception(
+                "Failed to persist incident result for job {}",
+                self.job_id,
+            )
 
     async def analyze(self) -> dict:
         """Возвращает результат анализа + артефакты для сохранения."""
+
+        await self._create_incident()
 
         await events.emit(
             self.job_id,
@@ -178,6 +329,8 @@ class AnalyzeJob:
             test_stdout=final_state.get("test_stdout", ""),
             test_stderr=final_state.get("test_stderr", "")
         )
+
+        await self._persist_result(final_state)
 
         # Отображение результата обратно в исходный формат артефакта для экономии времени
         return {

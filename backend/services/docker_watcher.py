@@ -339,6 +339,9 @@ class DockerLogWatcher:
             logs_dir=logs_dir,
             extra_ignore_dirs=settings.analysis.EXTRA_IGNORE_DIRS,
             job_id=job_id,
+            container_id=container.id,
+            container_name=container.name,
+            project=container.labels.get("fixops.project"),
         )
 
         await job.run()
