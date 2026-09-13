@@ -1,15 +1,86 @@
 from typing import Any, Type
 
 from pydantic import BaseModel
+from sqlalchemy import text
 
 from core.database import async_db_session, engine, Base
 from core.logging import app_logger as logger
 import db.psql.models.models  # noqa: F401  # регистрирует таблицы в Base.metadata
 
 
+async def _add_missing_columns(session) -> None:
+    """
+    Догоняет схему: create_all создаёт только отсутствующие таблицы и не
+    меняет существующие. Здесь добавляются колонки, которые появились в
+    моделях после того, как таблица уже была создана.
+
+    Автоматически добавляются только nullable-колонки (и/или с server_default).
+    NOT NULL без default требует ручной миграции — по ним пишется warning.
+    """
+    result = await session.execute(
+        text(
+            "SELECT table_name, column_name "
+            "FROM information_schema.columns "
+            "WHERE table_schema = current_schema()"
+        )
+    )
+
+    existing: dict[str, set[str]] = {}
+    for table_name, column_name in result.all():
+        existing.setdefault(table_name, set()).add(column_name)
+
+    dialect = engine.sync_engine.dialect
+
+    for table in Base.metadata.sorted_tables:
+        present = existing.get(table.name, set())
+
+        for column in table.columns:
+            if column.name in present:
+                continue
+
+            if (
+                not column.nullable
+                and column.server_default is None
+                and column.default is None
+            ):
+                logger.warning(
+                    "Column {}.{} is NOT NULL without default — "
+                    "add it manually",
+                    table.name,
+                    column.name,
+                )
+                continue
+
+            ddl = (
+                f'ALTER TABLE "{table.name}" '
+                f'ADD COLUMN IF NOT EXISTS "{column.name}" '
+                f"{column.type.compile(dialect=dialect)}"
+            )
+
+            server_default = column.server_default
+            default_arg = getattr(server_default, "arg", None)
+            if default_arg is not None and hasattr(default_arg, "text"):
+                ddl += f" DEFAULT {default_arg.text}"
+
+            try:
+                await session.execute(text(ddl))
+                logger.info(
+                    "Added missing column {}.{}",
+                    table.name,
+                    column.name,
+                )
+            except Exception as e:
+                logger.exception(
+                    "Failed to add column {}.{}: {}",
+                    table.name,
+                    column.name,
+                    e,
+                )
+
+
 async def create_tables() -> bool:
     """
-        Create all tables in the core
+        Create all tables in the core and sync missing columns
     :return: True or False
     """
     async with async_db_session() as s:
@@ -25,6 +96,10 @@ async def create_tables() -> bool:
                     bind=s_value.bind
                 )
             )
+
+            await _add_missing_columns(s)
+
+            await s.commit()
 
             return True
 
