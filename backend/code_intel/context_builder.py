@@ -199,8 +199,6 @@ class ContextBuilder:
         def scan(nodes, key_caller="callers", key_callee="callees"):
             for n in nodes:
                 if n["qualname"] == qualname:
-                    if n.get("from_runtime"):
-                        return "runtime-confirmed"
                     if n.get("resolved"):
                         return "static-resolved"
                     return "static-unresolved (эвристика, могла ошибиться)"

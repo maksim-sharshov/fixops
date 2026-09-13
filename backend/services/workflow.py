@@ -10,20 +10,17 @@ from typing import TypedDict, Dict, Any
 
 from langgraph.graph import StateGraph, END
 
-from core.decorators import log_execution
+from config import settings
 from core.logging import app_logger
+from core.decorators import log_execution
 
-from code_intel.indexer import ProjectIndexer
+from ai.deepseek import DeepSeekHandler
 from code_intel.graph import GraphBuilder
+from code_intel.executor import FixExecutor
+from code_intel.indexer import ProjectIndexer
 from code_intel.error_analyzer import ErrorAnalyzer
 from code_intel.context_builder import ContextBuilder
 from code_intel.resolver import ProjectIndex, CallResolver
-from code_intel.executor import FixExecutor
-
-from ai.deepseek import DeepSeekHandler
-from ai.groq import GroqHandler
-
-from config import settings
 
 
 class FixOpsState(TypedDict, total=False):

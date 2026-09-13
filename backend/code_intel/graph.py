@@ -2,20 +2,16 @@
 graph.py — построение графа вызовов (call graph) поверх резолвнутого индекса.
 
 Узел графа = qualname функции/метода (напр. "services.discount.DiscountService.calculate").
-Ребро A -> B  = "A вызывает B", с метаданными: строка вызова, файл, resolved/unresolved,
-                а также помечается флагом from_runtime=True, если ребро подтверждено
-                трассировкой выполнения (см. tracer.py), а не только статикой.
+Ребро A -> B  = "A вызывает B", с метаданными: строка вызова, файл, resolved/unresolved.
 
 Это именно тот граф из шага 4 ("Строим граф вызовов") и основа для
 шага 5-6 (поиск цепочки при ошибке).
 
-Построение и слияние рёбер собраны в класс `GraphBuilder`: он умеет
-строить граф по индексу (используя резолвер) и дополнять его рёбрами
-из runtime-трассировки. Для обратной совместимости сохранены модульные
-функции-обёртки `build_graph` и `merge_runtime_edges`.
+Построение рёбер собрано в класс `GraphBuilder`: он умеет строить граф
+по индексу (используя резолвер). Для обратной совместимости сохранена
+модульная функция-обёртка `build_graph`.
 """
 
-import asyncio
 from dataclasses import dataclass, field
 
 
@@ -27,7 +23,6 @@ class Edge:
     line: int
     resolved: bool
     reason: str
-    from_runtime: bool = False
 
 
 class CallGraph:
@@ -62,7 +57,6 @@ class CallGraph:
                 {
                     "source": e.source, "target": e.target, "file": e.file,
                     "line": e.line, "resolved": e.resolved, "reason": e.reason,
-                    "from_runtime": e.from_runtime,
                 }
                 for e in self.edges
             ],
@@ -70,7 +64,7 @@ class CallGraph:
 
 
 class GraphBuilder:
-    """Строит граф вызовов по индексy и сливает в него runtime-рёбра."""
+    """Строит граф вызовов по индексу."""
 
     def __init__(self, resolver=None):
         # resolver может быть как CallResolver-объектом (интерфейс
@@ -110,34 +104,6 @@ class GraphBuilder:
                     ))
         return g
 
-    async def merge_runtime_edges(self, g: CallGraph, runtime_events: list[dict]) -> None:
-        """Дополняет статический граф рёбрами, подтверждёнными реальным выполнением
-        (шаг 7.3). Каждое событие трассировки: {"caller": qualname, "callee": qualname,
-        "file": ..., "line": ..., "trace_id": ...}.
-
-        Если такое ребро уже есть в графе (пусть даже unresolved с тем же raw-текстом),
-        оно апгрейдится до resolved+from_runtime. Если ребра не было вовсе — добавляется
-        новое, помеченное как обнаруженное только рантаймом."""
-        
-        def _merge_sync():
-            for ev in runtime_events:
-                caller, callee = ev["caller"], ev["callee"]
-                existing = [e for e in g.out_edges.get(caller, []) if e.line == ev.get("line")]
-                if existing:
-                    for e in existing:
-                        e.target = callee
-                        e.resolved = True
-                        e.from_runtime = True
-                        e.reason = "runtime_trace"
-                else:
-                    g.add_edge(Edge(
-                        source=caller, target=callee, file=ev.get("file", ""),
-                        line=ev.get("line", 0), resolved=True, reason="runtime_trace",
-                        from_runtime=True,
-                    ))
-        
-        await asyncio.to_thread(_merge_sync)
-
 
 async def build_graph(idx, resolve_call_func) -> CallGraph:
     """Обратно-совместимая обёртка над GraphBuilder.build (legacy-сигнатура резолвера)."""
@@ -150,8 +116,3 @@ async def build_graph(idx, resolve_call_func) -> CallGraph:
             return self.func(self.idx, m, fn, call_dict)
             
     return await GraphBuilder(LegacyResolver(resolve_call_func, idx)).build(idx)
-
-
-async def merge_runtime_edges(g: CallGraph, runtime_events: list[dict]) -> None:
-    """Обратно-совместимая обёртка над GraphBuilder.merge_runtime_edges."""
-    await GraphBuilder().merge_runtime_edges(g, runtime_events)

@@ -10,8 +10,7 @@
 code_intel/
   indexer.py           # Шаг 1-3: сканирование проекта + AST-разбор файлов
   resolver.py          # Резолвинг вызовов (импорты, self, локальные типы)
-  graph.py             # Шаг 4: граф вызовов + слияние с runtime-рёбрами
-  tracer.py            # Runtime-трассировка (sys.settrace) с trace_id
+  graph.py             # Шаг 4: граф вызовов
   error_analyzer.py    # Шаг 5-6: лог ошибки -> цепочка callers/callees + root cause (координаты)
   context_builder.py   # Шаг 7: координаты -> РЕАЛЬНЫЙ КОД + финальный промпт для LLM
   html_view.py         # Визуализация графа (граф + подсветка цепочки ошибки)
@@ -109,11 +108,6 @@ print(render_chain_text(result))
 из лог-файла, как в `analyze_error.py` (`ErrorLoader`): последние `LOG_TAIL_LINES`
 строк, последняя ERROR-запись с координатами.
 
-Runtime-трассировку подключайте в staging/тестах (не в проде — `sys.settrace`
-даёт заметный оверхед), либо замените `tracer.py` на APM-трейсинг
-(OpenTelemetry spans), сопоставляя `trace_id` из логов с реальными вызовами —
-принцип тот же.
-
 ## Известные ограничения
 
 - Динамический полиморфизм (`service.run()`, где `service` — параметр функции
@@ -123,8 +117,8 @@ Runtime-трассировку подключайте в staging/тестах (�
   `pyright --outputjson` даст типы параметров и полей.
 - Цепные вызовы вида `ClassName().method()` статически распадаются на два
   отдельных вызова (конструктор + метод без известного базового объекта) —
-  именно поэтому в демо нужен runtime-трейс, чтобы получить точное ребро
-  `CheckoutService.pay -> DiscountService.calculate`.
+  точное ребро `CheckoutService.pay -> DiscountService.calculate` при этом
+  теряется.
 - Читаются только последние `LOG_TAIL_LINES = 50` строк лога: если между
   ошибкой и концом лога много записей (например, длинный retry-цикл после
   падения), поднимите эту константу в `analyze_error.py`.

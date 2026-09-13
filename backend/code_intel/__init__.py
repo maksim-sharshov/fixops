@@ -6,7 +6,6 @@ code_intel — FixOps Code Intelligence.
   indexer           ProjectIndexer   — AST-индексация проекта
   resolver          ProjectIndex, CallResolver — резолвинг вызовов
   graph             CallGraph, GraphBuilder — граф вызовов
-  tracer            RuntimeTracer   — runtime-трассировка
   error_analyzer    ErrorAnalyzer   — ошибка из лога -> цепочка причинности
   context_builder   ContextBuilder  — координаты -> реальный код -> промпт LLM
 """
@@ -30,9 +29,7 @@ from .graph import (
     CallGraph,
     GraphBuilder,
     build_graph,
-    merge_runtime_edges,
 )
-from .tracer import RuntimeTracer
 from .error_analyzer import ErrorAnalyzer, analyze_error, render_chain_text
 from .context_builder import ContextBuilder, build_llm_context, render_llm_prompt
 
@@ -51,8 +48,6 @@ __all__ = [
     "CallGraph",
     "GraphBuilder",
     "build_graph",
-    "merge_runtime_edges",
-    "RuntimeTracer",
     "ErrorAnalyzer",
     "analyze_error",
     "render_chain_text",

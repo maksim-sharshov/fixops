@@ -12,7 +12,6 @@
     --text-dim:#7C8AA0;
     --resolved:#3DDC97;
     --unresolved:#F0A93E;
-    --runtime:#7C7CFF;
     --error:#FF5C7A;
     --mono:'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
     --sans:-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
@@ -59,7 +58,6 @@
   .chain-step{ font-family:var(--mono); font-size:11.5px; padding:7px 0; border-bottom:1px dashed var(--panel-line); line-height:1.5; word-break:break-word;}
   .chain-step:last-child{ border-bottom:none; }
   .chain-step .tag{ display:inline-block; font-size:9px; padding:1px 6px; border-radius:8px; margin-left:6px; font-family:var(--mono); vertical-align:1px;}
-  .tag-runtime{ background:rgba(124,124,255,0.18); color:var(--runtime); }
   .tag-static{ background:rgba(61,220,151,0.15); color:var(--resolved); }
   .tag-unresolved{ background:rgba(240,169,62,0.15); color:var(--unresolved); }
   .root-item{ font-family:var(--mono); font-size:12px; color:var(--error); padding:5px 0;}
@@ -85,7 +83,6 @@
   <div class="legend">
     <span><i class="dot" style="background:var(--resolved)"></i> резолвнуто статикой</span>
     <span><i class="dot" style="background:var(--unresolved)"></i> не резолвнуто</span>
-    <span><i class="dot" style="background:var(--runtime)"></i> подтверждено runtime-трейсом</span>
     <span><i class="dot" style="background:var(--error)"></i> узел ошибки</span>
   </div>
 </div>
@@ -127,11 +124,11 @@
 </div>
 
 <script>
-// ====== Данные, экспортированные пайплайном FixOps (indexer -> resolver -> graph -> tracer -> error_analyzer) ======
+// ====== Данные, экспортированные пайплайном FixOps (indexer -> resolver -> graph -> error_analyzer) ======
 const GRAPH = __GRAPH_JSON__;
 const ANALYSIS = __ANALYSIS_JSON__;
 
-const colorResolved = '#3DDC97', colorUnresolved = '#F0A93E', colorRuntime = '#7C7CFF', colorError = '#FF5C7A';
+const colorResolved = '#3DDC97', colorUnresolved = '#F0A93E', colorChain = '#7C7CFF', colorError = '#FF5C7A';
 
 // ---------- узлы/рёбра цепочки ошибки (для подсветки) ----------
 const chainNodes = new Set([ANALYSIS.resolved_node]);
@@ -226,7 +223,7 @@ function make(tag, attrs){
 // маркеры стрелок (по одному на цвет)
 const defs = make('defs', {});
 [['arrow-resolved', colorResolved], ['arrow-unresolved', colorUnresolved],
- ['arrow-runtime', colorRuntime], ['arrow-dim', '#3A4658']].forEach(([id, color]) => {
+ ['arrow-dim', '#3A4658']].forEach(([id, color]) => {
   const marker = make('marker', {id, markerWidth:8, markerHeight:8, refX:7, refY:4, orient:'auto'});
   marker.appendChild(make('path', {d:'M0,0 L8,4 L0,8 Z', fill:color}));
   defs.appendChild(marker);
@@ -244,8 +241,8 @@ GRAPH.edges.forEach((e, i) => {
   if (!p1 || !p2) return;
   const key = e.source + '->' + e.target;
   const inChain = chainEdgeKeys.has(key);
-  const color = e.from_runtime ? colorRuntime : (e.resolved ? colorResolved : colorUnresolved);
-  const markerId = e.from_runtime ? 'arrow-runtime' : (e.resolved ? 'arrow-resolved' : 'arrow-unresolved');
+  const color = e.resolved ? colorResolved : colorUnresolved;
+  const markerId = e.resolved ? 'arrow-resolved' : 'arrow-unresolved';
 
   const x1 = p1.x + 60, y1 = p1.y, x2 = p2.x - 14, y2 = p2.y;
   const mx = (x1 + x2) / 2;
@@ -275,7 +272,7 @@ nodeIds.forEach(id => {
 
   let fill = '#232C3B', stroke = '#3A4658';
   if (isError){ fill = colorError; stroke = '#FF8FA5'; }
-  else if (inChain){ fill = '#182238'; stroke = colorRuntime; }
+  else if (inChain){ fill = '#182238'; stroke = colorChain; }
 
   if (isError){
     g.appendChild(make('rect', {x:-52, y:-16, width:104, height:32, rx:6, fill, stroke, 'stroke-width':2}));
@@ -348,7 +345,6 @@ document.getElementById('err-msg').textContent = ANALYSIS.error.error;
 document.getElementById('err-trace').textContent = 'trace_id: ' + (ANALYSIS.error.trace_id || '—');
 
 function tag(n){
-  if (n.from_runtime) return '<span class="tag tag-runtime">runtime</span>';
   if (n.resolved) return '<span class="tag tag-static">static</span>';
   return '<span class="tag tag-unresolved">unresolved</span>';
 }

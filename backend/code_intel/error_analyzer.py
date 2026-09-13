@@ -56,7 +56,7 @@ class ErrorAnalyzer:
         for e in callers:
             chain.append({
                 "qualname": e.source, "via_file": e.file, "via_line": e.line,
-                "resolved": e.resolved, "from_runtime": e.from_runtime,
+                "resolved": e.resolved,
                 "callers": await self._walk_callers(e.source, depth + 1, max_depth, seen),
             })
         return chain
@@ -72,7 +72,7 @@ class ErrorAnalyzer:
         for e in callees:
             chain.append({
                 "qualname": e.target, "file": e.file, "line": e.line,
-                "resolved": e.resolved, "from_runtime": e.from_runtime,
+                "resolved": e.resolved,
                 "callees": await self._walk_callees(e.target, depth + 1, max_depth, seen),
             })
         return chain
@@ -134,13 +134,13 @@ class ErrorAnalyzer:
 
         def render_callers(nodes, indent=""):
             for n in nodes:
-                tag = "runtime" if n["from_runtime"] else ("static" if n["resolved"] else "unresolved")
+                tag = "static" if n["resolved"] else "unresolved"
                 lines.append(f"{indent}{n['qualname']}  вызвал  ({n['via_file']}:{n['via_line']}, {tag})")
                 render_callers(n["callers"], indent + "  ")
 
         def render_callees(nodes, indent=""):
             for n in nodes:
-                tag = "runtime" if n["from_runtime"] else ("static" if n["resolved"] else "unresolved")
+                tag = "static" if n["resolved"] else "unresolved"
                 lines.append(f"{indent}вызвал -> {n['qualname']}  ({n['file']}:{n['line']}, {tag})")
                 render_callees(n["callees"], indent + "  ")
 
