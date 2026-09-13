@@ -32,9 +32,13 @@ services:
       # SSH для GitHub
       - /home/virtu/.ssh:/root/.ssh:ro-
 
-
   frontend:
-    image: nginx:alpine
+
+    build:
+      context: ./frontend        # путь к распакованному fixops-frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL}   # публичный IP/домен вашего сервера + порт бэкенда
 
     container_name: fixops-frontend
 
@@ -45,10 +49,6 @@ services:
 
     ports:
       - "3000:80"
-
-    volumes:
-      - ./frontend:/usr/share/nginx/html:ro
-
 
   redis:
     image: redis/redis-stack:latest
@@ -67,7 +67,6 @@ services:
 
     volumes:
       - redis-data:/data
-
 
 volumes:
   redis-data:

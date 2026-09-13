@@ -1,0 +1,428 @@
+/* ---------- Workflow ---------- */
+
+.workflow {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.workflow-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 10px 0;
+  position: relative;
+}
+
+.workflow-step:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 13px;
+  top: 34px;
+  width: 1px;
+  height: calc(100% - 10px);
+  background: var(--border);
+}
+
+.workflow-step.completed:not(:last-child)::before {
+  background: rgba(47, 239, 176, 0.35);
+}
+
+.step-circle {
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  border: var(--border-width) solid var(--border);
+  background: var(--panel-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.workflow-step.completed .step-circle {
+  background: var(--green);
+  border-color: var(--green);
+  color: var(--bg);
+  box-shadow: 0 0 8px var(--glow-green);
+}
+
+.workflow-step.active .step-circle {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: var(--bg);
+  animation: pulseGlow 1.4s ease-in-out infinite;
+}
+
+.workflow-step.failed .step-circle {
+  background: var(--red);
+  border-color: var(--red);
+  color: var(--bg);
+  box-shadow: 0 0 10px var(--glow-red);
+}
+
+.step-content {
+  flex: 1;
+  min-width: 0;
+  padding-top: 3px;
+}
+
+.step-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.step-description {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.workflow-step.active .step-title {
+  color: var(--blue);
+}
+
+.workflow-step.failed .step-title {
+  color: var(--red);
+}
+
+/* ---------- AI Analysis tabs ---------- */
+
+.ai-analysis-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+  border-bottom: var(--border-width) solid var(--border);
+}
+
+.ai-analysis-tab {
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.ai-analysis-tab:hover {
+  color: var(--text);
+}
+
+.ai-analysis-tab.active {
+  color: var(--blue);
+  border-bottom-color: var(--blue);
+}
+
+.ai-analysis-body {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.7;
+  color: var(--muted);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  max-height: 340px;
+  overflow-y: auto;
+  padding: 4px 2px;
+}
+
+/* ---------- Collapsible ---------- */
+
+.collapsible {
+  background: var(--panel-2);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.collapsible + .collapsible {
+  margin-top: 8px;
+}
+
+.collapsible-header {
+  padding: 11px 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  user-select: none;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+}
+
+.collapsible-header:hover {
+  color: var(--blue);
+}
+
+.collapsible-icon {
+  color: var(--blue);
+  display: flex;
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+
+.collapsible.open .collapsible-icon {
+  transform: rotate(90deg);
+}
+
+.collapsible-body {
+  padding: 12px 14px;
+  border-top: var(--border-width) solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+/* ---------- Diff viewer ---------- */
+
+.diff-viewer {
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.diff-viewer-header {
+  background: var(--panel-1);
+  padding: 10px 14px;
+  border-bottom: var(--border-width) solid var(--border);
+  color: var(--muted);
+  font-size: 11.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.diff-viewer-body {
+  overflow-x: auto;
+}
+
+.diff-line {
+  display: flex;
+  white-space: pre;
+  line-height: 1.65;
+}
+
+.diff-line-number {
+  flex-shrink: 0;
+  width: 42px;
+  text-align: right;
+  padding-right: 12px;
+  color: #4a5573;
+  user-select: none;
+  font-size: 11px;
+}
+
+.diff-line-content {
+  flex: 1;
+  padding-right: 16px;
+}
+
+.diff-line.add {
+  background: rgba(47, 239, 176, 0.06);
+}
+.diff-line.add .diff-line-content {
+  color: var(--green);
+}
+.diff-line.add .diff-line-number {
+  color: rgba(47, 239, 176, 0.5);
+}
+
+.diff-line.remove {
+  background: rgba(255, 92, 122, 0.06);
+}
+.diff-line.remove .diff-line-content {
+  color: var(--red);
+}
+.diff-line.remove .diff-line-number {
+  color: rgba(255, 92, 122, 0.5);
+}
+
+.diff-line.context .diff-line-content {
+  color: var(--muted);
+}
+
+/* ---------- Verification badges ---------- */
+
+.verification-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.test-badge {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  font-family: var(--font-mono);
+  padding: 6px 11px;
+  border-radius: 999px;
+  border: var(--border-width) solid var(--border);
+  background: var(--panel-2);
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.test-badge.pass {
+  color: var(--green);
+  border-color: rgba(47, 239, 176, 0.4);
+  background: rgba(47, 239, 176, 0.07);
+}
+
+.test-badge.fail {
+  color: var(--red);
+  border-color: rgba(255, 92, 122, 0.4);
+  background: rgba(255, 92, 122, 0.07);
+}
+
+/* ---------- Log viewer ---------- */
+
+.log-viewer {
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  overflow: hidden;
+}
+
+.log-viewer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 12px;
+  border-bottom: var(--border-width) solid var(--border);
+}
+
+.log-viewer-title {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.log-viewer-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.log-viewer-action-btn {
+  background: none;
+  border: var(--border-width) solid var(--border);
+  color: var(--muted);
+  border-radius: 6px;
+  padding: 4px 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.log-viewer-action-btn:hover {
+  color: var(--text);
+  border-color: var(--border-bright);
+}
+
+.log-viewer-body {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.7;
+  color: var(--muted);
+  padding: 10px 14px;
+  max-height: 260px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.log-viewer-body.collapsed {
+  display: none;
+}
+
+/* ---------- Repair result ---------- */
+
+.repair-result {
+  text-align: center;
+  padding: 22px 16px;
+}
+
+.repair-result-icon {
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: center;
+}
+
+.repair-result-title {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.repair-result-detail {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+.repair-result.success .repair-result-title {
+  color: var(--green);
+}
+.repair-result.failed .repair-result-title {
+  color: var(--red);
+}
+
+/* ---------- Action result box ---------- */
+
+.action-result-box {
+  margin-top: 16px;
+  border-radius: var(--radius);
+  border: var(--border-width) solid var(--border);
+  padding: 13px 16px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  background: var(--panel-2);
+  color: var(--muted);
+  animation: slideDown 0.2s ease-out;
+}
+
+.action-result-box.running {
+  border-color: rgba(255, 200, 87, 0.4);
+  color: var(--yellow);
+  background: rgba(255, 200, 87, 0.05);
+}
+
+.action-result-box.success {
+  border-color: rgba(47, 239, 176, 0.4);
+  color: var(--green);
+  background: rgba(47, 239, 176, 0.05);
+}
+
+.action-result-box.error {
+  border-color: rgba(255, 92, 122, 0.4);
+  color: var(--red);
+  background: rgba(255, 92, 122, 0.05);
+}
