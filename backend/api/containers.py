@@ -7,7 +7,7 @@ from fastapi import APIRouter, Request, HTTPException
 
 
 router = APIRouter(
-    prefix="/api/containers",
+    prefix="/containers",
     tags=["containers"],
 )
 

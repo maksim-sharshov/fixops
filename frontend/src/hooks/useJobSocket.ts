@@ -194,7 +194,7 @@ export function useJobSocket({
 
     dispatch({ type: "reset", jobId });
 
-    const socket = new WebSocket(`${WS_URL}/ws/jobs/${jobId}`);
+    const socket = new WebSocket(`${WS_URL}/api/ws/jobs/${jobId}`);
 
     socket.onmessage = (event) => {
       let message: JobEventRaw;

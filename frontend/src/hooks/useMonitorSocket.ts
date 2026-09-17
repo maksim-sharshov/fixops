@@ -46,7 +46,7 @@ export function useMonitorSocket({
     function connect() {
       if (cancelled) return;
 
-      const wsUrl = `${WS_URL}/ws`;
+      const wsUrl = `${WS_URL}/api/ws`;
       socket = new WebSocket(wsUrl);
 
       socket.onopen = () => {

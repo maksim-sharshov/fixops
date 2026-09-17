@@ -9,7 +9,7 @@ from services.container_manager import run_apply, run_rollback
 
 
 router = APIRouter(
-    prefix="/api/incidents",
+    prefix="/incidents",
     tags=["incidents"],
 )
 
