@@ -22,7 +22,6 @@ resolver.py — резолвинг вызовов в полные qualname.
 """
 
 import asyncio
-from typing import Optional
 
 
 class ProjectIndex:
@@ -49,7 +48,7 @@ class ProjectIndex:
                 else:
                     self.func_to_module[fn.name] = m.module
 
-    def module_of(self, module_dotted_or_file: str) -> Optional[object]:
+    def module_of(self, module_dotted_or_file: str) -> object | None:
         for m in self.modules:
             if m.module == module_dotted_or_file or m.file == module_dotted_or_file:
                 return m

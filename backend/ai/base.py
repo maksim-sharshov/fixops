@@ -34,7 +34,6 @@ class AIHandler(ABC):
 
         :return: Список сообщений
         """
-        pass
 
     @abstractmethod
     async def generate_response(self, user_message: str) -> str:
@@ -44,4 +43,3 @@ class AIHandler(ABC):
         :param user_message: Сообщение пользователя
         :return: Текст ответа модели
         """
-        pass

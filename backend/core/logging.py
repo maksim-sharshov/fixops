@@ -6,10 +6,11 @@ import os
 import sys
 import uuid
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 from loguru import logger
-from config import settings, _REPO_ROOT
+
+from config import _REPO_ROOT, settings
 
 # Директория логов: по умолчанию <корень проекта>/logs
 LOGS_DIR = Path(settings.logging.LOG_DIR)

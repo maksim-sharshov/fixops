@@ -20,20 +20,20 @@ analyze_error.py — статический анализ ошибки по гр�
   - last_error_analysis.json — цепочка/координаты ошибки
   - llm_prompt.md            — ИТОГОВЫЙ промпт, который уходит в LLM
 """
+import asyncio
+import contextlib
+import json
 import os
 import re
 import sys
-import json
-import asyncio
 from uuid import uuid4
 
+from code_intel.html_view import save_html_view
 from config import settings
 from core.events import events
 from core.logging import app_logger
-from code_intel.html_view import save_html_view
 from db.psql.models.models import IncidentResult
-from services.workflow import create_workflow, FixOpsState
-
+from services.workflow import FixOpsState, create_workflow
 
 WORKFLOW_STEP_ORDER = (
     "indexer",
@@ -162,10 +162,8 @@ class AnalyzeJob:
 
     def _format_error_location(self) -> str:
         file = self.error_log.get("file") or ""
-        try:
+        with contextlib.suppress(ValueError):
             file = os.path.relpath(file, self.project_root)
-        except ValueError:
-            pass
         file = file.replace(os.sep, "/")
         return (
             f"{file}:{self.error_log.get('line')} "
@@ -178,7 +176,7 @@ class AnalyzeJob:
 
     def _build_steps(self) -> list[dict]:
         """Собирает состояния шагов из событий workflow для этого job."""
-        states = {step: "pending" for step in WORKFLOW_STEP_ORDER}
+        states = dict.fromkeys(WORKFLOW_STEP_ORDER, "pending")
 
         for event in events.history.get(self.job_id, []):
             step = NODE_TO_STEP.get(event.get("node"))

@@ -1,7 +1,6 @@
 import os
-from typing import Tuple
-from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 
@@ -9,9 +8,9 @@ _REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 class AnalysisConfig(BaseSettings):
     """Конфигурация для анализатора ошибок."""
 
-    EXTRA_IGNORE_DIRS: Tuple[str, ...] = ()
+    EXTRA_IGNORE_DIRS: tuple[str, ...] = ()
     LOG_TAIL_LINES: int = 50
-    REQUIRED_ERROR_KEYS: Tuple[str, ...] = ("file", "function", "line", "error")
+    REQUIRED_ERROR_KEYS: tuple[str, ...] = ("file", "function", "line", "error")
     MAX_FIX_ATTEMPTS: int = 3
 
     # Современный способ задания настроек источника конфигурации

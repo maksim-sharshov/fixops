@@ -1,5 +1,6 @@
-import docker
 import subprocess
+
+import docker
 
 from config import settings
 from services.git_service import GitService

@@ -5,6 +5,7 @@
 from openai import AsyncOpenAI
 
 from config import settings
+
 from .base import AIHandler
 from .history_manager import HistoryManager
 

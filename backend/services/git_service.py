@@ -122,7 +122,7 @@ class GitService:
                 "rebase",
                 f"origin/{branch}",
             )
-        except RuntimeError:
+        except RuntimeError as error:
             subprocess.run(
                 [
                     "git",
@@ -137,7 +137,7 @@ class GitService:
             raise RuntimeError(
                 "Git rebase conflict. "
                 "FixOps stopped before commit/push."
-            )
+            ) from error
 
     def add(self, files: list[str]) -> None:
         if not files:

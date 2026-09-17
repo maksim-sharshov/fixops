@@ -1,5 +1,6 @@
-from config import settings
 from aredis_om import get_redis_connection
+
+from config import settings
 
 redis_conn = get_redis_connection(
     url=settings.redis.URL,

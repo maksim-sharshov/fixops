@@ -1,10 +1,8 @@
 import asyncio
-from services.container_manager import (
-    run_apply,
-    run_rollback
-)
-from fastapi import APIRouter, Request, HTTPException
 
+from fastapi import APIRouter, HTTPException, Request
+
+from services.container_manager import run_apply, run_rollback
 
 router = APIRouter(
     prefix="/containers",
@@ -49,7 +47,7 @@ async def apply_fix(container_id: str):
         raise HTTPException(
             status_code=500,
             detail=str(e),
-        )
+        ) from e
 
 
 @router.post("/{container_id}/rollback")
@@ -71,4 +69,4 @@ async def rollback_fix(container_id: str):
         raise HTTPException(
             status_code=500,
             detail=str(e),
-        )
+        ) from e

@@ -1,11 +1,10 @@
-import time
-import inspect
 import functools
+import inspect
+import time
 import traceback
 
 from core.events import events
 from core.logging import get_logger
-
 
 SENSITIVE_FIELDS = {
     "password",

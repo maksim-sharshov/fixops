@@ -1,0 +1,37 @@
+target-version = "py312"
+line-length = 100
+extend-exclude = ["venv", "__pycache__", "logs"]
+
+[lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "SIM",  # flake8-simplify
+    "PIE",  # flake8-pie
+    "RUF",  # ruff-specific
+    "FURB", # refurb
+]
+
+ignore = [
+    "E501",    # line length обрабатывается форматтером
+    "RUF001",  # неоднозначные символы в строках (русские буквы в комментариях/докстрингах)
+    "RUF002",  # неоднозначные символы в докстрингах
+    "RUF003",  # неоднозначные символы в комментариях
+    "RUF012",  # mutable class default — осознанно
+    "RUF013",  # implicit Optional — встречается в существующем коде
+    "RUF059",  # unused unpacked variable — осознанные распаковки
+]
+
+[lint.per-file-ignores]
+"services/workflow.py" = ["SIM102", "SIM103"]
+"code_intel/*" = ["RUF012"]
+"db/psql/models/models.py" = ["F403", "F405", "UP046"]
+
+[format]
+quote-style = "double"
+indent-style = "space"

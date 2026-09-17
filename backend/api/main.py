@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -23,10 +24,8 @@ async def lifespan(app: FastAPI):
 
     watcher_task.cancel()
 
-    try:
+    with contextlib.suppress(asyncio.CancelledError):
         await watcher_task
-    except asyncio.CancelledError:
-        pass
 
 
 def create_app() -> FastAPI:

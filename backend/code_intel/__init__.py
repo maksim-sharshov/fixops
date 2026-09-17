@@ -10,48 +10,48 @@ code_intel — FixOps Code Intelligence.
   context_builder   ContextBuilder  — координаты -> реальный код -> промпт LLM
 """
 
+from .context_builder import ContextBuilder, build_llm_context, render_llm_prompt
+from .error_analyzer import ErrorAnalyzer, analyze_error, render_chain_text
+from .graph import (
+    CallGraph,
+    Edge,
+    GraphBuilder,
+    build_graph,
+)
 from .indexer import (
-    ProjectIndexer,
     CallSite,
-    FunctionInfo,
     ClassInfo,
+    FunctionInfo,
     ModuleInfo,
+    ProjectIndexer,
     scan_project,
     to_dict,
 )
 from .resolver import (
-    ProjectIndex,
     CallResolver,
+    ProjectIndex,
     resolve_call,
 )
-from .graph import (
-    Edge,
-    CallGraph,
-    GraphBuilder,
-    build_graph,
-)
-from .error_analyzer import ErrorAnalyzer, analyze_error, render_chain_text
-from .context_builder import ContextBuilder, build_llm_context, render_llm_prompt
 
 __all__ = [
-    "ProjectIndexer",
+    "CallGraph",
+    "CallResolver",
     "CallSite",
-    "FunctionInfo",
     "ClassInfo",
+    "ContextBuilder",
+    "Edge",
+    "ErrorAnalyzer",
+    "FunctionInfo",
+    "GraphBuilder",
     "ModuleInfo",
+    "ProjectIndex",
+    "ProjectIndexer",
+    "analyze_error",
+    "build_graph",
+    "build_llm_context",
+    "render_chain_text",
+    "render_llm_prompt",
+    "resolve_call",
     "scan_project",
     "to_dict",
-    "ProjectIndex",
-    "CallResolver",
-    "resolve_call",
-    "Edge",
-    "CallGraph",
-    "GraphBuilder",
-    "build_graph",
-    "ErrorAnalyzer",
-    "analyze_error",
-    "render_chain_text",
-    "ContextBuilder",
-    "build_llm_context",
-    "render_llm_prompt",
 ]

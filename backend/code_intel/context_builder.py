@@ -13,9 +13,9 @@ context_builder.py — последний слой перед LLM.
 SEARCH-блока с реальным файлом (100% вместо 93%).
 """
 
-import os
 import ast
 import asyncio
+import os
 
 
 class ContextBuilder:
@@ -49,7 +49,7 @@ class ContextBuilder:
         path = os.path.join(self.project_root, file)
 
         def _extract():
-            with open(path, "r", encoding="utf-8") as f:
+            with open(path, encoding="utf-8") as f:
                 lines = f.readlines()
 
             # 1. Находим все импорты (до целевой функции)
@@ -64,11 +64,13 @@ class ContextBuilder:
             try:
                 tree = ast.parse("".join(lines))
                 for node in ast.walk(tree):
-                    if isinstance(node, ast.ClassDef):
-                        if (node.lineno <= target_lineno
-                                and node.end_lineno >= target_end_lineno):
-                            class_node = node
-                            break
+                    if (
+                        isinstance(node, ast.ClassDef)
+                        and node.lineno <= target_lineno
+                        and node.end_lineno >= target_end_lineno
+                    ):
+                        class_node = node
+                        break
             except SyntaxError:
                 pass
 
@@ -124,11 +126,7 @@ class ContextBuilder:
                 class_def_idx = class_node.lineno - 1
                 # Показываем class def + docstring
                 for idx in range(class_def_idx, func_start_0based):
-                    if lines[idx].strip().startswith("@"):
-                        numbered.append(f"{idx + 1:>4} | {lines[idx].rstrip()}")
-                    elif lines[idx].strip().startswith("def "):
-                        numbered.append(f"{idx + 1:>4} | {lines[idx].rstrip()}")
-                    elif lines[idx].strip().startswith('"""') or lines[idx].strip().startswith("'''"):
+                    if lines[idx].strip().startswith("@") or lines[idx].strip().startswith("def ") or lines[idx].strip().startswith('"""') or lines[idx].strip().startswith("'''"):
                         numbered.append(f"{idx + 1:>4} | {lines[idx].rstrip()}")
                     elif lines[idx].strip() == "":
                         numbered.append(f"{idx + 1:>4} |")

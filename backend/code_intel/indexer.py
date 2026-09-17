@@ -29,10 +29,9 @@ indexer.py — AST-индексатор проекта.
 from __future__ import annotations
 
 import ast
-import os
 import asyncio
-from dataclasses import dataclass, field, asdict
-from typing import Optional
+import os
+from dataclasses import asdict, dataclass, field
 
 
 @dataclass
@@ -40,8 +39,8 @@ class CallSite:
     line: int
     raw: str                 # текстовое представление вызова, напр. "self.repo.get"
     kind: str                # "name" | "self_attr" | "attr" | "dotted"
-    base: Optional[str]      # то, на чём вызывается метод: "self", "promo", "PromoRepository"
-    attr: Optional[str]      # имя метода/функции: "get"
+    base: str | None      # то, на чём вызывается метод: "self", "promo", "PromoRepository"
+    attr: str | None      # имя метода/функции: "get"
 
 
 @dataclass
@@ -51,7 +50,7 @@ class FunctionInfo:
     lineno: int
     end_lineno: int
     is_method: bool
-    class_name: Optional[str]
+    class_name: str | None
     calls: list = field(default_factory=list)          # list[CallSite]
     local_types: dict = field(default_factory=dict)     # var_name -> ClassName (из x = ClassName())
 
@@ -81,11 +80,11 @@ class ProjectIndexer:
     @staticmethod
     def _file_to_module(root: str, path: str) -> str:
         rel = os.path.relpath(path, root)
-        rel = rel[:-3] if rel.endswith(".py") else rel
+        rel = rel.removesuffix(".py")
         return rel.replace(os.sep, ".")
 
     @staticmethod
-    def _dotted_call_name(node: ast.AST) -> tuple[str, Optional[str], Optional[str]]:
+    def _dotted_call_name(node: ast.AST) -> tuple[str, str | None, str | None]:
         """Возвращает (raw_text, base, attr) для узла вызываемого выражения."""
         if isinstance(node, ast.Name):
             return node.id, None, node.id
@@ -108,7 +107,7 @@ class ProjectIndexer:
         """Проходит по проекту и индексирует каждый .py файл. Это и есть шаг 1 —
         построение индекса без чтения всего проекта в контекст модели целиком."""
         modules = []
-        # os.walk is synchronous, but probably fast enough. 
+        # os.walk is synchronous, but probably fast enough.
         # Making it async might be overkill unless the project is huge.
         for dirpath, dirnames, filenames in os.walk(root):
             dirnames[:] = [d for d in dirnames if d not in ignore_dirs]
@@ -123,10 +122,10 @@ class ProjectIndexer:
 
     async def index_file(self, root: str, path: str) -> ModuleInfo:
         def _read_and_parse():
-            with open(path, "r", encoding="utf-8") as f:
+            with open(path, encoding="utf-8") as f:
                 source = f.read()
             return ast.parse(source, filename=path)
-        
+
         tree = await asyncio.to_thread(_read_and_parse)
 
         mod = ModuleInfo(
@@ -165,7 +164,7 @@ class ProjectIndexer:
 
         return mod
 
-    def _index_function(self, node, module: str, is_method: bool, class_name: Optional[str]) -> FunctionInfo:
+    def _index_function(self, node, module: str, is_method: bool, class_name: str | None) -> FunctionInfo:
         qualname = f"{module}.{class_name}.{node.name}" if class_name else f"{module}.{node.name}"
         fv = _FunctionVisitor()
         for stmt in node.body:

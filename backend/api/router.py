@@ -1,9 +1,8 @@
 from fastapi import APIRouter
 
-from api.ws import router as ws_router
 from api.containers import router as containers_router
 from api.incidents import router as incidents_router
-
+from api.ws import router as ws_router
 
 api_router = APIRouter(prefix="/api")
 

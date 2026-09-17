@@ -1,26 +1,24 @@
-import os
-import sys
-import json
 import asyncio
+import json
+import os
 import shutil
 import subprocess
-
+import sys
+from typing import Any, TypedDict
 from uuid import uuid4
-from typing import TypedDict, Dict, Any
 
-from langgraph.graph import StateGraph, END
-
-from config import settings
-from core.logging import app_logger
-from core.decorators import log_execution
+from langgraph.graph import END, StateGraph
 
 from ai.deepseek import DeepSeekHandler
-from code_intel.graph import GraphBuilder
-from code_intel.executor import FixExecutor
-from code_intel.indexer import ProjectIndexer
-from code_intel.error_analyzer import ErrorAnalyzer
 from code_intel.context_builder import ContextBuilder
-from code_intel.resolver import ProjectIndex, CallResolver
+from code_intel.error_analyzer import ErrorAnalyzer
+from code_intel.executor import FixExecutor
+from code_intel.graph import GraphBuilder
+from code_intel.indexer import ProjectIndexer
+from code_intel.resolver import CallResolver, ProjectIndex
+from config import settings
+from core.decorators import log_execution
+from core.logging import app_logger
 
 
 class FixOpsState(TypedDict, total=False):
@@ -40,7 +38,7 @@ class FixOpsState(TypedDict, total=False):
     indexer: Any
     index: Any
     graph: Any
-    analysis_result: Dict
+    analysis_result: dict
 
     fixed_file: str | None
     fix_applied: bool
@@ -262,7 +260,6 @@ async def apply_fix_node(state: FixOpsState):
                     try:
                         with open(
                             path,
-                            "r",
                             encoding="utf-8",
                         ) as f:
                             before[path] = f.read()
@@ -282,7 +279,6 @@ async def apply_fix_node(state: FixOpsState):
             try:
                 with open(
                     path,
-                    "r",
                     encoding="utf-8",
                 ) as f:
                     new_content = f.read()
@@ -361,7 +357,7 @@ async def run_tests_node(state: FixOpsState):
             )
         )
     else:
-        logger.error(
+        logger.warning(
             "TESTS FAILED:\n"
             + (
                 result.stderr
@@ -399,7 +395,7 @@ async def run_tests_node(state: FixOpsState):
                 "REPRODUCTION PASSED"
             )
         else:
-            logger.error(
+            logger.warning(
                 "REPRODUCTION FAILED:\n"
                 + (
                     proc.stderr
@@ -500,7 +496,7 @@ async def reset_project_node(state: FixOpsState):
         }
 
     except Exception as e:
-        logger.error(
+        logger.warning(
             f"Project reset failed: {e}"
         )
 

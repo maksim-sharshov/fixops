@@ -1,0 +1,24 @@
+[tool.mypy]
+python_version = "3.12"
+explicit_package_bases = true
+mypy_path = "."
+ignore_missing_imports = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_configs = true
+check_untyped_defs = false
+exclude = '(^|/)(venv|logs|__pycache__)/'
+
+# Существующие модули с историческим долгом по типам.
+# Новый код в этих пакетах проверяется, ослаблены только конкретные файлы.
+[[tool.mypy.overrides]]
+module = [
+    "config",
+    "ai.deepseek",
+    "code_intel.indexer",
+    "db.psql.crud.base",
+    "db.psql.models.models",
+    "db.redis.models.models",
+    "services.analyze_error",
+]
+ignore_errors = true

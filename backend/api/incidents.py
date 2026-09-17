@@ -1,12 +1,11 @@
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
 from db.psql.models.models import IncidentResult
 from services.container_manager import run_apply, run_rollback
-
 
 router = APIRouter(
     prefix="/incidents",
@@ -49,7 +48,7 @@ async def list_incidents():
 
     incidents = sorted(
         incidents,
-        key=lambda item: item.created_at or datetime.min.replace(tzinfo=timezone.utc),
+        key=lambda item: item.created_at or datetime.min.replace(tzinfo=UTC),
         reverse=True,
     )
 
@@ -105,10 +104,10 @@ async def apply_incident(job_id: str):
         raise HTTPException(
             status_code=500,
             detail=str(error),
-        )
+        ) from error
 
     await incident.update(
-        applied_at=datetime.now(timezone.utc),
+        applied_at=datetime.now(UTC),
         apply_output=output,
     )
 
@@ -132,10 +131,10 @@ async def rollback_incident(job_id: str):
         raise HTTPException(
             status_code=500,
             detail=str(error),
-        )
+        ) from error
 
     await incident.update(
-        rolled_back_at=datetime.now(timezone.utc),
+        rolled_back_at=datetime.now(UTC),
     )
 
     return {

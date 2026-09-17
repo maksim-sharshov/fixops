@@ -1,8 +1,7 @@
-from uuid import uuid4
 from datetime import datetime
-from typing import Optional
+from typing import Self
+from uuid import uuid4
 
-from typing_extensions import Self
 from aredis_om import Field, HashModel
 from aredis_om.model.model import RedisOmConfig
 
@@ -58,7 +57,7 @@ class ModelAdmin(HashModel):
             await super().delete(self.pk)
 
     @classmethod
-    async def get_by_pk(cls, pk: str) -> Optional[Self]:
+    async def get_by_pk(cls, pk: str) -> Self | None:
         """
         Находит и возвращает один объект модели по его первичному ключу.
 

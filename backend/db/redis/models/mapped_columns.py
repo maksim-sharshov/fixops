@@ -1,6 +1,7 @@
 
-import pytz
 from datetime import datetime
+
+import pytz
 
 MOSCOW_TZ = pytz.timezone("Europe/Moscow")
 

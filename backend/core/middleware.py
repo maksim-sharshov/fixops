@@ -1,7 +1,7 @@
 import uuid
-from fastapi import Request
 from contextvars import ContextVar
 
+from fastapi import Request
 
 request_id: ContextVar[str | None] = ContextVar(
     "request_id",

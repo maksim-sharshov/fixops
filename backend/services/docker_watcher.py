@@ -1,16 +1,16 @@
-import os
-import json
-import time
-import docker
 import asyncio
-from uuid import uuid4
+import json
+import os
+import time
 from collections import deque
+from uuid import uuid4
 
-from config import settings
-from core.logging import get_logger
+import docker
+
 from api.ws import notify_job_started
+from config import settings
 from core.decorators import log_execution
-
+from core.logging import get_logger
 from services.analyze_error import AnalyzeJob
 
 
@@ -28,6 +28,7 @@ class DockerLogWatcher:
         self.recent_errors = {}
         self.containers = {}
         self.watch_tasks: dict[str, asyncio.Task] = {}
+        self.error_tasks: set[asyncio.Task] = set()
 
 
     @log_execution(event="docker_watcher.run")
@@ -52,11 +53,6 @@ class DockerLogWatcher:
 
                 self.containers = {
                     container.id: container
-                    for container in containers
-                }
-
-                active_ids = {
-                    container.id
                     for container in containers
                 }
 
@@ -215,7 +211,7 @@ class DockerLogWatcher:
                 ):
                     continue
 
-                asyncio.create_task(
+                task = asyncio.create_task(
                     self.handle_error(
                         container=container,
                         data=data,
@@ -223,6 +219,8 @@ class DockerLogWatcher:
                         history=history.copy(),
                     )
                 )
+                self.error_tasks.add(task)
+                task.add_done_callback(self.error_tasks.discard)
 
                 continue
 
@@ -279,13 +277,10 @@ class DockerLogWatcher:
 
         self.recent_errors[error_key] = now
 
-        if (
+        return (
             last_seen is not None
             and now - last_seen < 2
-        ):
-            return True
-
-        return False
+        )
 
     @log_execution(event="docker_watcher.handle_error")
     async def handle_error(

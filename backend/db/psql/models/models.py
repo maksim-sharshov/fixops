@@ -1,16 +1,16 @@
-from typing import TypeVar, Generic, Sequence
+from collections.abc import Sequence
 from datetime import datetime
+from typing import Generic, TypeVar
 
+from sqlalchemy import JSON, DateTime, Integer, Text
 from sqlalchemy.exc import NoResultFound
-from sqlalchemy import Integer, Text, JSON, DateTime
-from sqlalchemy.sql import select, update as sqlalchemy_update
-from sqlalchemy.orm import Mapped, selectinload, load_only, mapped_column
+from sqlalchemy.orm import Mapped, load_only, mapped_column, selectinload
+from sqlalchemy.sql import select
+from sqlalchemy.sql import update as sqlalchemy_update
 
-from core.database import async_db_session, Base
-
+from core.database import Base, async_db_session
 from db.psql.models.enum import *
 from db.psql.models.mapped_columns import *
-
 
 T = TypeVar("T")
 

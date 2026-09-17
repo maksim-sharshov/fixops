@@ -1,11 +1,11 @@
-from typing import Any, Type
+from typing import Any
 
 from pydantic import BaseModel
 from sqlalchemy import text
 
-from core.database import async_db_session, engine, Base
-from core.logging import app_logger as logger
 import db.psql.models.models  # noqa: F401  # регистрирует таблицы в Base.metadata
+from core.database import Base, async_db_session, engine
+from core.logging import app_logger as logger
 
 
 async def _add_missing_columns(session) -> None:
@@ -113,7 +113,7 @@ async def close_connections() -> bool:
         Close pool of db connections
     :return: True or False
     """
-    async with async_db_session() as s:
+    async with async_db_session():
         try:
             await engine.dispose()
 
@@ -124,7 +124,7 @@ async def close_connections() -> bool:
             return False
 
 
-async def to_pydantic(pydantic_class: Type[BaseModel], data: Any, to_json: bool = False) -> list[BaseModel] | list[dict]:
+async def to_pydantic(pydantic_class: type[BaseModel], data: Any, to_json: bool = False) -> list[BaseModel] | list[dict]:
     """
         Making pydantic class or json from SQLAlchemy table data
     :param pydantic_class: subclass of Pydantic BaseModel

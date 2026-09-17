@@ -108,6 +108,67 @@ print(render_chain_text(result))
 из лог-файла, как в `analyze_error.py` (`ErrorLoader`): последние `LOG_TAIL_LINES`
 строк, последняя ERROR-запись с координатами.
 
+## CI/CD
+
+Настроены два GitHub Actions workflow в `.github/workflows/`:
+
+### CI (`ci.yml`) — на каждый push в `main` и pull request
+
+| Job | Что проверяет |
+| --- | --- |
+| `Backend (lint + types)` | `ruff check` и `mypy` в `backend/` |
+| `Frontend (lint + build)` | `oxlint` и `tsc -b && vite build` в `frontend/` |
+| `Docker build` | сборка обоих образов (без публикации), кеш через `type=gha` |
+
+### CD (`cd.yml`) — на push в `main` и теги `v*`
+
+1. `build-and-push` собирает образы `fixops-backend` и `fixops-frontend`,
+   публикует их в **GitHub Container Registry** (`ghcr.io/<owner>/...`)
+   с тегами `sha-<commit>`, `latest` (для `main`) и semver (для тегов `v*`).
+2. `deploy` копирует `docker-compose.prod.yml` на сервер по SSH и выполняет
+   `docker compose pull && up -d --remove-orphans`.
+
+Деплой использует окружение `production` (можно включить required reviewers).
+
+#### Обязательные GitHub Secrets
+
+| Secret | Назначение |
+| --- | --- |
+| `SSH_HOST` | адрес прод-сервера |
+| `SSH_USER` | пользователь SSH |
+| `SSH_KEY` | приватный SSH-ключ |
+| `SSH_PORT` | порт SSH (опционально, по умолчанию `22`) |
+| `DEPLOY_PATH` | каталог на сервере, где лежат `docker-compose.prod.yml` и `.env` |
+| `GHCR_TOKEN` | PAT с правом `read:packages` для `docker login` на сервере (если не задан — используется `GITHUB_TOKEN`) |
+
+#### GitHub Variables
+
+| Variable | Назначение |
+| --- | --- |
+| `VITE_API_URL` | URL бэкенда, вшивается в фронтенд на этапе сборки |
+
+На сервере рядом с `docker-compose.prod.yml` должен лежать `.env`
+(см. `.env.example`) с паролями и `IMAGE_OWNER`/`IMAGE_TAG`.
+
+#### Локальные проверки
+
+```bash
+# backend
+cd backend
+pip install -r requirements.txt -r requirements-dev.txt
+ruff check .
+mypy .
+
+# frontend
+cd frontend
+npm ci
+npm run lint
+npm run build
+```
+
+Форматирование бэкенда: `ruff format .` (в CI пока не включено, чтобы не
+смешивать со смысловыми изменениями).
+
 ## Известные ограничения
 
 - Динамический полиморфизм (`service.run()`, где `service` — параметр функции

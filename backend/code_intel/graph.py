@@ -12,7 +12,7 @@ graph.py — построение графа вызовов (call graph) пов�
 модульная функция-обёртка `build_graph`.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 @dataclass
@@ -74,26 +74,26 @@ class GraphBuilder:
 
     def _resolve_one(self, idx, m, fn, call_dict, resolver):
         # We assume resolver is now always an object with async resolve_call
-        return None 
+        return None
 
     async def build(self, idx, resolver=None) -> CallGraph:
         # Resolver is expected to be an async resolve_call object
         resolved_resolver = resolver or self.resolver
         if resolved_resolver is None:
              raise ValueError("Resolver must be provided")
-        
+
         g = CallGraph()
-        
+
         for m in idx.modules:
             for fn in m.functions:
                 g.add_node(fn.qualname)
                 for call in fn.calls:
                     call_dict = {"line": call.line, "raw": call.raw, "kind": call.kind,
                                  "base": call.base, "attr": call.attr}
-                    
+
                     # resolver.resolve_call is now async
                     res = await resolved_resolver.resolve_call(m, fn, call_dict)
-                    
+
                     g.add_edge(Edge(
                         source=fn.qualname,
                         target=res["target"],
@@ -114,5 +114,5 @@ async def build_graph(idx, resolve_call_func) -> CallGraph:
             self.idx = idx
         async def resolve_call(self, m, fn, call_dict):
             return self.func(self.idx, m, fn, call_dict)
-            
+
     return await GraphBuilder(LegacyResolver(resolve_call_func, idx)).build(idx)

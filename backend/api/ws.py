@@ -2,7 +2,6 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from core.events import events
 
-
 router = APIRouter()
 
 

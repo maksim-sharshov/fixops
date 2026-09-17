@@ -2,7 +2,8 @@
 Менеджер для работы с историей сообщений
 """
 
-from typing import Literal, Optional
+from typing import Literal
+
 from db.redis.models.models import ChatMessage
 
 
@@ -19,7 +20,7 @@ class HistoryManager:
     async def get_history(
         session_id: str | int,
         format_type: Literal["openai", "gemini"] = "openai",
-        limit: Optional[int] = None
+        limit: int | None = None
     ) -> list[dict]:
         """
         Получает историю сообщений для указанной сессии в нужном формате.
