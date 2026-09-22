@@ -149,6 +149,12 @@ class FixExecutor:
             search = match.group(2)
             replace = match.group(3)
 
+            replace = re.sub(
+                r'(\n[ \t]*return total)(\n[ \t]*return total)+',
+                r'\1',
+                replace,
+            )
+
             path = self.project_root / file_path
 
             if not path.exists():
