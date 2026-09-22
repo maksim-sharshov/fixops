@@ -64,6 +64,7 @@ class FixOpsState(TypedDict, total=False):
 # Сканирование проекта
 @log_execution(event="workflow_step", operation="indexer")
 async def indexer_node(state: FixOpsState):
+    await asyncio.sleep(10)
     indexer = ProjectIndexer()
 
     ignore_dirs = (
