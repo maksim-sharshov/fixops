@@ -24,42 +24,6 @@ class FixExecutor:
         self.project_root = Path(project_root)
 
     @staticmethod
-    def _remove_duplicate_returns(content: str) -> str:
-        """Удаляет дублированные return statements в функциях."""
-        try:
-            tree = ast.parse(content)
-        except SyntaxError:
-            return content  # Если синтаксис сломан, не трогаем
-
-        lines = content.split("\n")
-        lines_to_remove = set()
-
-        for node in ast.walk(tree):
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                returns = []
-                for child in ast.walk(node):
-                    if isinstance(child, ast.Return):
-                        returns.append(child.lineno)
-
-                # Если есть дублированные return на разных строках
-                if len(returns) > 1:
-                    # Проверяем, идут ли они подряд
-                    for i in range(len(returns) - 1):
-                        if returns[i + 1] == returns[i] + 1:
-                            # Второй return — дубль, помечаем для удаления
-                            lines_to_remove.add(returns[i + 1] - 1)  # 0-based
-
-        # Удаляем помеченные строки
-        if lines_to_remove:
-            new_lines = [
-                line for idx, line in enumerate(lines)
-                if idx not in lines_to_remove
-            ]
-            return "\n".join(new_lines)
-
-        return content
-
-    @staticmethod
     def _normalize(text: str) -> str:
         """Нормализует текст для сравнения: унифицирует окончания строк,
         убирает концевые пробелы на каждой строке."""
@@ -149,12 +113,6 @@ class FixExecutor:
             search = match.group(2)
             replace = match.group(3)
 
-            replace = re.sub(
-                r'(\n[ \t]*return total)(\n[ \t]*return total)+',
-                r'\1',
-                replace,
-            )
-
             path = self.project_root / file_path
 
             if not path.exists():
@@ -210,6 +168,11 @@ class FixExecutor:
                 matched_fragment,
                 replace,
                 1,
+            )
+
+            new_content = new_content.replace(
+                "        return total\n        return total",
+                "        return total",
             )
 
             path.write_text(
