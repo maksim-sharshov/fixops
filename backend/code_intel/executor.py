@@ -113,22 +113,19 @@ class FixExecutor:
             search = match.group(2)
             replace = match.group(3)
 
-            if "return total" in search and "return total" in replace:
-                search_lines = search.splitlines()
-                replace_lines = replace.splitlines()
+            search_lines = search.splitlines()
+            replace_lines = replace.splitlines()
 
-                if search_lines and replace_lines:
-                    while (
-                        search_lines
-                        and replace_lines
-                        and search_lines[-1].strip() == "return total"
-                        and replace_lines[-1].strip() == "return total"
-                    ):
-                        search_lines.pop()
-                        replace_lines.pop()
+            while (
+                search_lines
+                and replace_lines
+                and search_lines[-1].strip() == replace_lines[-1].strip()
+            ):
+                search_lines.pop()
+                replace_lines.pop()
 
-                    search = "\n".join(search_lines)
-                    replace = "\n".join(replace_lines)
+            search = "\n".join(search_lines)
+            replace = "\n".join(replace_lines)
 
             path = self.project_root / file_path
 
