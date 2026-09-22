@@ -102,6 +102,7 @@ async def indexer_node(state: FixOpsState):
 # Построение карты связей кода
 @log_execution(event="workflow_step", operation="graph_builder")
 async def graph_builder_node(state: FixOpsState):
+    await asyncio.sleep(0.2)
     idx = ProjectIndex(state["modules"])
 
     graph = await GraphBuilder(
@@ -129,6 +130,7 @@ async def graph_builder_node(state: FixOpsState):
 # Анализ ошибки
 @log_execution(event="workflow_step", operation="error_analyzer")
 async def error_analyzer_node(state: FixOpsState):
+    await asyncio.sleep(0.2)
     analyzer = ErrorAnalyzer(
         state["index"],
         state["graph"],
@@ -146,6 +148,7 @@ async def error_analyzer_node(state: FixOpsState):
 # Сбор контекста и генерация промпта
 @log_execution(event="workflow_step", operation="context_builder")
 async def context_builder_node(state: FixOpsState):
+    await asyncio.sleep(0.2)
     ctx = await ContextBuilder(
         state["project_root"]
     ).build_llm_context(
