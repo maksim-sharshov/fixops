@@ -53,8 +53,8 @@ services:
 
   frontend:
     build:
-      context: .                 # корень репозитория: нужен и index.html (лендинг), и frontend/
-      dockerfile: frontend/Dockerfile
+      context: ./frontend        # путь к распакованному fixops-frontend
+      dockerfile: Dockerfile
       args:
         VITE_API_URL: ${VITE_API_URL}   # публичный IP/домен вашего сервера + порт бэкенда
     container_name: fixops-frontend
